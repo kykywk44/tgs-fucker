@@ -598,7 +598,7 @@ function SaturationSquare({ h, s, v, onChange }: SaturationSquareProps) {
     <div
       ref={ref}
       role="application"
-      aria-label="Saturation and brightness"
+      aria-label="Насыщенность и яркость"
       tabIndex={0}
       onFocus={(e) => { if (e.currentTarget.matches(":focus-visible")) setFocused(true); }}
       onBlur={() => setFocused(false)}
@@ -696,7 +696,7 @@ function HueSlider({ h, onChange }: { h: number; onChange: (h: number) => void }
           "linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))",
         borderColor: "transparent",
       }}
-      aria-label="Hue"
+      aria-label="Оттенок"
     />
   );
 }
@@ -741,7 +741,7 @@ function AlphaSlider({
         backgroundSize: "100% 100%, 8px 8px",
         borderWidth: 0,
       }}
-      aria-label="Alpha"
+      aria-label="Непрозрачность"
     />
   );
 }
@@ -1590,7 +1590,7 @@ function EyeDropperButton({ onPick }: { onPick: (hex: string) => void }) {
     <button
       type="button"
       onClick={handleClick}
-      aria-label="Pick color from screen"
+      aria-label="Взять цвет с экрана"
       className={cn(
         "flex items-center justify-center text-muted-foreground bg-transparent hover:bg-hover hover:text-foreground active:bg-active transition-colors duration-80 outline-none focus-visible:ring-1 focus-visible:ring-[color:var(--focus-ring,#6B97FF)] cursor-pointer",
         sizeClasses.control,
@@ -2073,11 +2073,11 @@ function ColorInputsRow({
     const hexNoHash = parsed.hex.replace(/^#/, "").toUpperCase();
     return (
       <div className="grid grid-cols-2 gap-2">
-        <ChannelTooltip label="Hex">
+        <ChannelTooltip label="Hex-код">
           <ColorInput
             value={hexNoHash}
             onCommit={(next) => onChannelChange("hex", next.startsWith("#") ? next : `#${next}`)}
-            ariaLabel="Hex value"
+            ariaLabel="Hex-код цвета"
             prefix="#"
           />
         </ChannelTooltip>
@@ -2089,9 +2089,9 @@ function ColorInputsRow({
   if (format === "rgb") {
     return (
       <div className="grid grid-cols-4 gap-1">
-        <ChannelTooltip label="Red"><ColorInput value={String(parsed.r)} onCommit={(n) => onChannelChange("r", n)} ariaLabel="Red" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={255} /></ChannelTooltip>
-        <ChannelTooltip label="Green"><ColorInput value={String(parsed.g)} onCommit={(n) => onChannelChange("g", n)} ariaLabel="Green" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={255} /></ChannelTooltip>
-        <ChannelTooltip label="Blue"><ColorInput value={String(parsed.b)} onCommit={(n) => onChannelChange("b", n)} ariaLabel="Blue" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={255} /></ChannelTooltip>
+        <ChannelTooltip label="Красный"><ColorInput value={String(parsed.r)} onCommit={(n) => onChannelChange("r", n)} ariaLabel="Красный" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={255} /></ChannelTooltip>
+        <ChannelTooltip label="Зелёный"><ColorInput value={String(parsed.g)} onCommit={(n) => onChannelChange("g", n)} ariaLabel="Зелёный" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={255} /></ChannelTooltip>
+        <ChannelTooltip label="Синий"><ColorInput value={String(parsed.b)} onCommit={(n) => onChannelChange("b", n)} ariaLabel="Синий" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={255} /></ChannelTooltip>
         <AlphaInput value={alphaPct} onCommit={(n) => onChannelChange("alphaPercent", String(n))} />
       </div>
     );
@@ -2103,9 +2103,9 @@ function ColorInputsRow({
     const hsl = rgbToHsl(parsed.r, parsed.g, parsed.b);
     return (
       <div className="grid grid-cols-4 gap-1">
-        <ChannelTooltip label="Hue"><ColorInput value={String(Math.round(hsl.h))} onCommit={(n) => onChannelChange("hSL", n)} ariaLabel="Hue" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={360} wrap /></ChannelTooltip>
-        <ChannelTooltip label="Saturation"><ColorInput value={String(Math.round(hsl.s * 100))} onCommit={(n) => onChannelChange("sSL", n)} ariaLabel="Saturation" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={100} /></ChannelTooltip>
-        <ChannelTooltip label="Lightness"><ColorInput value={String(Math.round(hsl.l * 100))} onCommit={(n) => onChannelChange("lSL", n)} ariaLabel="Lightness" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={100} /></ChannelTooltip>
+        <ChannelTooltip label="Оттенок"><ColorInput value={String(Math.round(hsl.h))} onCommit={(n) => onChannelChange("hSL", n)} ariaLabel="Оттенок" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={360} wrap /></ChannelTooltip>
+        <ChannelTooltip label="Насыщенность"><ColorInput value={String(Math.round(hsl.s * 100))} onCommit={(n) => onChannelChange("sSL", n)} ariaLabel="Насыщенность" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={100} /></ChannelTooltip>
+        <ChannelTooltip label="Светлота"><ColorInput value={String(Math.round(hsl.l * 100))} onCommit={(n) => onChannelChange("lSL", n)} ariaLabel="Светлота" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={100} /></ChannelTooltip>
         <AlphaInput value={alphaPct} onCommit={(n) => onChannelChange("alphaPercent", String(n))} />
       </div>
     );
@@ -2119,9 +2119,9 @@ function ColorInputsRow({
   const displayH = oklchHue ?? oklch.H;
   return (
     <div className="grid grid-cols-4 gap-1">
-      <ChannelTooltip label="Lightness"><ColorInput value={(oklch.L * 100).toFixed(0)} onCommit={(n) => onChannelChange("L", n)} ariaLabel="Lightness" align="center" inputMode="decimal" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={100} /></ChannelTooltip>
-      <ChannelTooltip label="Chroma"><ColorInput value={oklch.C.toFixed(2)} onCommit={(n) => onChannelChange("C", n)} ariaLabel="Chroma" align="center" inputMode="decimal" nudgeStep={0.01} nudgeShiftStep={0.1} decimals={2} scrubbable min={0} max={0.4} /></ChannelTooltip>
-      <ChannelTooltip label="Hue"><ColorInput value={displayH.toFixed(0)} onCommit={(n) => onChannelChange("H", n)} ariaLabel="Hue" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={360} wrap /></ChannelTooltip>
+      <ChannelTooltip label="Светлота"><ColorInput value={(oklch.L * 100).toFixed(0)} onCommit={(n) => onChannelChange("L", n)} ariaLabel="Светлота" align="center" inputMode="decimal" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={100} /></ChannelTooltip>
+      <ChannelTooltip label="Цветность"><ColorInput value={oklch.C.toFixed(2)} onCommit={(n) => onChannelChange("C", n)} ariaLabel="Цветность" align="center" inputMode="decimal" nudgeStep={0.01} nudgeShiftStep={0.1} decimals={2} scrubbable min={0} max={0.4} /></ChannelTooltip>
+      <ChannelTooltip label="Оттенок"><ColorInput value={displayH.toFixed(0)} onCommit={(n) => onChannelChange("H", n)} ariaLabel="Оттенок" align="center" inputMode="numeric" nudgeStep={1} nudgeShiftStep={10} scrubbable min={0} max={360} wrap /></ChannelTooltip>
       <AlphaInput value={alphaPct} onCommit={(n) => onChannelChange("alphaPercent", String(n))} />
     </div>
   );
@@ -2141,7 +2141,7 @@ function ChannelTooltip({ label, children }: { label: string; children: ReactNod
 // same whichever format is active.
 function AlphaInput({ value, onCommit }: { value: number; onCommit: (n: number) => void }) {
   return (
-    <ChannelTooltip label="Alpha">
+    <ChannelTooltip label="Непрозрачность">
       <ColorInput
         value={`${value}%`}
         onCommit={(input) => {
@@ -2149,7 +2149,7 @@ function AlphaInput({ value, onCommit }: { value: number; onCommit: (n: number) 
           if (Number.isNaN(n)) return;
           onCommit(Math.max(0, Math.min(100, Math.round(n))));
         }}
-        ariaLabel="Alpha"
+        ariaLabel="Непрозрачность"
         align="center"
         inputMode="numeric"
         nudgeStep={1}
