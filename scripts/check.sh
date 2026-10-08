@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Dev only: validate .tgs files with python-lottie's Telegram sticker checker (tgs_check.py).
 # Usage: bash scripts/check.sh [file.tgs ...]   (default: samples/*.tgs exports/*.tgs)
-# Relative paths are resolved from the repo root. Exits 1 if any file fails the checker.
+# Relative paths are resolved from the repo root. A file fails on a checker Warning or Error
+# (python-lottie --level Warning); Notes are printed but never fail. Exits 1 if any file fails.
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)" || exit 1
 cd "$ROOT" || exit 1
@@ -58,16 +59,24 @@ for input in "${inputs[@]}"; do
   kb="$(awk -v b="$bytes" 'BEGIN { printf "%.1f", b / 1024 }')"
   echo "== $(basename "$path")  ${kb} KB  $path"
 
-  # The checker prints each issue on stdout and exits 1 when there are any.
-  out="$("$PY" "$CHECKER" "$path" 2>&1)"
-  rc=$?
-  if [ -n "$out" ]; then
-    printf '%s\n' "$out" | sed 's/^/   /'
+  # Print every issue at the checker's default level (Note and up), so notes stay visible.
+  # The verdict is the checker's own --level Warning run: exit 1 there means a Warning or
+  # Error, and that fails the file. Notes never fail a file.
+  all="$("$PY" "$CHECKER" "$path" 2>&1)"
+  if [ -n "$all" ]; then
+    printf '%s\n' "$all" | sed 's/^/   /'
   fi
+  "$PY" "$CHECKER" --level Warning "$path" >/dev/null 2>&1
+  rc=$?
+  notes="$(printf '%s\n' "$all" | awk '/^Note: /{n++} END{print n+0}')"
   if [ "$rc" -eq 0 ]; then
-    echo "   PASS"
+    if [ "$notes" -gt 0 ]; then
+      echo "   PASS ($notes note(s), informational)"
+    else
+      echo "   PASS"
+    fi
   else
-    echo "   FAIL (checker exit $rc)"
+    echo "   FAIL (checker --level Warning exit $rc)"
     failed=$((failed + 1))
   fi
 done

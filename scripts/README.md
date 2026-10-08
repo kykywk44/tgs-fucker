@@ -10,4 +10,5 @@ Checks `.tgs` files with python-lottie's own Telegram checker (`tgs_check.py`, l
 - First run creates `.venv/` and installs lottie==0.7.2; later runs skip the install.
 - Relative paths are resolved from the repo root; use absolute paths for files elsewhere.
 - No `.tgs` files to check is not an error (exit 0); a missing file is.
-- Exit 1 if any file fails: the checker reports an issue (default level Note, so notes and warnings count) or crashes.
+- A file fails (exit 1) on a checker Warning or Error (`--level Warning`), a crash, or a missing file.
+- Notes (e.g. track mattes, masks) are printed for every file as informational and never fail it.
