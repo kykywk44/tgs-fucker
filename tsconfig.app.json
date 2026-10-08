@@ -18,7 +18,8 @@
     "jsx": "react-jsx",
     /* tlottie's exports map points "./react" types at a missing file; the real declarations live here. Type-only: Vite resolves runtime via package exports. */
     "paths": {
-      "tlottie/react": ["./node_modules/tlottie/dist/react/react/index.d.ts"]
+      "tlottie/react": ["./node_modules/tlottie/dist/react/react/index.d.ts"],
+      "@/*": ["./src/*"]
     },
 
     /* Linting */

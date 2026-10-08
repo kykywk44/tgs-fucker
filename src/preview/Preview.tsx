@@ -1,7 +1,9 @@
-import { useCallback, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { Pause, Play } from 'lucide-react'
 import { LottiePlayer, type TLottie, type TLottieEventPayload } from 'tlottie/react'
 import 'tlottie/react/style.css'
-import './preview.css'
+import { Button } from '@/components/ui/button'
+import { Slider, type SliderValue } from '@/components/ui/slider'
 
 export interface PreviewProps {
   json: string // Lottie JSON string
@@ -68,8 +70,8 @@ export function Preview({ json, totalFrames }: PreviewProps) {
 
   // The worker throttles 'frame' events while paused, so the slider position is
   // set locally as well as sent to the player.
-  const seek = (event: ChangeEvent<HTMLInputElement>) => {
-    const target = Number(event.target.value)
+  const seek = (value: SliderValue) => {
+    const target = typeof value === 'number' ? value : value[0]
     setFrame(target)
     const player = playerRef.current
     if (!player) return
@@ -78,10 +80,13 @@ export function Preview({ json, totalFrames }: PreviewProps) {
   }
 
   return (
-    <div className="preview">
-      <div className="preview-stage">
+    // Children are centred with auto margins; when the pane is narrower than 512px they
+    // overflow to the right (scrollable) instead of off the left edge (unreachable).
+    <div className="flex flex-col items-start gap-3">
+      {/* 512x512 CSS px stage: the ring is a box-shadow, so the canvas keeps its full 512px. */}
+      <div className="checkerboard mx-auto size-[512px] overflow-hidden rounded-2xl ring-1 ring-border">
         <LottiePlayer
-          className="preview-player"
+          className="size-full"
           data={json}
           loop
           autoplay
@@ -89,25 +94,31 @@ export function Preview({ json, totalFrames }: PreviewProps) {
           lottieRefCallback={handlePlayer}
         />
       </div>
-      <div className="preview-controls">
-        <button type="button" onClick={togglePlay}>
-          {playing ? 'Pause' : 'Play'}
-        </button>
-        <input
-          type="range"
-          aria-label="Frame"
+      <div className="mx-auto flex w-[512px] items-center gap-3">
+        <Button
+          variant="secondary"
+          size="icon"
+          aria-label={playing ? 'Пауза' : 'Воспроизвести'}
+          onClick={togglePlay}
+        >
+          {playing ? <Pause /> : <Play />}
+        </Button>
+        <Slider
+          className="min-w-0 flex-1"
+          label="Кадр"
+          showValue={false}
           min={0}
           max={Math.max(0, totalFrames - 1)}
           value={frame}
           onChange={seek}
         />
-        <span className="preview-frame">
-          frame {frame} / {totalFrames}
+        <span className="min-w-[12ch] text-right text-body tabular-nums whitespace-nowrap text-muted-foreground">
+          кадр {frame} / {totalFrames}
         </span>
       </div>
       {error !== null && (
-        <p className="preview-error" role="alert">
-          Preview error: {error}
+        <p className="mx-auto text-body text-destructive" role="alert">
+          Ошибка предпросмотра: {error}
         </p>
       )}
     </div>
