@@ -78,11 +78,32 @@ export function useHistory<T>(): History<T> {
   }
 }
 
-// Text fields keep their own undo; leave ⌘Z alone while one has focus.
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  const tag = target.tagName
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
+// <input> types that take no typed text and so have no undo of their own. A focused range
+// slider (the timeline scrubber) must not swallow ⌘Z.
+const NON_TEXT_INPUT_TYPES = new Set([
+  'range',
+  'checkbox',
+  'radio',
+  'button',
+  'submit',
+  'reset',
+  'color',
+  'file',
+  'image',
+])
+
+// True for elements the user types into (they keep their own ⌘Z): textarea, select,
+// contenteditable, and any <input> whose type is not in NON_TEXT_INPUT_TYPES.
+// Takes a plain shape so it can be tested without a DOM.
+export function isTextEntryTarget(
+  el: { tagName: string; type?: string; isContentEditable?: boolean } | null,
+): boolean {
+  if (!el) return false
+  if (el.isContentEditable) return true
+  const tag = el.tagName.toUpperCase()
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true
+  if (tag === 'INPUT') return !NON_TEXT_INPUT_TYPES.has((el.type ?? 'text').toLowerCase())
+  return false
 }
 
 // ⌘Z undoes and ⇧⌘Z redoes (Ctrl instead of ⌘ on other OS; either modifier is accepted
@@ -102,7 +123,7 @@ export function useUndoShortcuts(h: {
     function onKeyDown(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey || e.isComposing) return
       if (e.key.toLowerCase() !== 'z') return
-      if (isEditableTarget(e.target)) return
+      if (e.target instanceof HTMLElement && isTextEntryTarget(e.target)) return
       const { undo, redo, canUndo, canRedo } = latest.current
       if (e.shiftKey) {
         if (!canRedo) return

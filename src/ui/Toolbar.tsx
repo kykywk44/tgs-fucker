@@ -61,7 +61,13 @@ export function Toolbar({
 }: ToolbarProps) {
   const shape = useShape()
   const groupRef = useRef<HTMLDivElement>(null)
-  const hover = useFluidHover(groupRef, { axis: 'x', isItemDisabled: isButtonDisabled })
+  // gapClick off: a click on a greyed-out (pointer-events-none) item lands on the group, and
+  // the default gap-click routing would re-fire it on the nearest enabled item instead.
+  const hover = useFluidHover(groupRef, {
+    axis: 'x',
+    isItemDisabled: isButtonDisabled,
+    gapClick: false,
+  })
 
   const hasFile = fileName !== null
   const blocked = exportBlockedReasons.length > 0

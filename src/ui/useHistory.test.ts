@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { historyReducer, type HistoryAction, type HistoryState } from './useHistory'
+import {
+  historyReducer,
+  isTextEntryTarget,
+  type HistoryAction,
+  type HistoryState,
+} from './useHistory'
 
 const EMPTY: HistoryState<number> = { past: [], present: null, future: [] }
 
@@ -159,5 +164,56 @@ describe('historyReducer: purity', () => {
     const next = historyReducer(state, { type: 'undo' })
     expect(next.past).not.toBe(state.past)
     expect(next.future).not.toBe(state.future)
+  })
+})
+
+describe('isTextEntryTarget', () => {
+  const input = (type?: string) => ({ tagName: 'INPUT', type })
+
+  it('is false when there is no target', () => {
+    expect(isTextEntryTarget(null)).toBe(false)
+  })
+
+  it.each(['text', 'search', 'email', 'password', 'number', 'url', 'tel', 'date', 'time'])(
+    'is true for <input type="%s">',
+    (type) => {
+      expect(isTextEntryTarget(input(type))).toBe(true)
+    },
+  )
+
+  it('treats an input with no type as text', () => {
+    expect(isTextEntryTarget(input(undefined))).toBe(true)
+  })
+
+  it.each(['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file', 'image'])(
+    'is false for <input type="%s"> so the shortcuts pass through',
+    (type) => {
+      expect(isTextEntryTarget(input(type))).toBe(false)
+    },
+  )
+
+  it('ignores the case of the input type', () => {
+    expect(isTextEntryTarget(input('RANGE'))).toBe(false)
+    expect(isTextEntryTarget(input('Text'))).toBe(true)
+  })
+
+  it('is true for textarea and select', () => {
+    expect(isTextEntryTarget({ tagName: 'TEXTAREA' })).toBe(true)
+    expect(isTextEntryTarget({ tagName: 'SELECT' })).toBe(true)
+  })
+
+  it('is true for contenteditable elements, whatever their tag', () => {
+    expect(isTextEntryTarget({ tagName: 'DIV', isContentEditable: true })).toBe(true)
+  })
+
+  it('is false for other elements', () => {
+    expect(isTextEntryTarget({ tagName: 'DIV', isContentEditable: false })).toBe(false)
+    expect(isTextEntryTarget({ tagName: 'BUTTON' })).toBe(false)
+    expect(isTextEntryTarget({ tagName: 'BODY' })).toBe(false)
+  })
+
+  it('does not depend on the tag name case', () => {
+    expect(isTextEntryTarget({ tagName: 'textarea' })).toBe(true)
+    expect(isTextEntryTarget({ tagName: 'input', type: 'range' })).toBe(false)
   })
 })
