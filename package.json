@@ -11,8 +11,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@lottiefiles/lottie-js": "^0.4.2",
-    "lottie-colorify": "^0.8.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tlottie": "0.1.24"
