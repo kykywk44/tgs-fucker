@@ -259,3 +259,365 @@ Done when: global gate passes; in the browser: load a sample, recolor one swatch
 - Final whole-branch review (most capable model).
 - Orchestrator checks the app in a browser with files from `samples/`.
 - User compares the preview with Telegram and sends an exported recolored sticker to Telegram (@Stickers or a chat).
+
+---
+
+# Iteration 2 — Live preview + colour families
+
+Spec: this section's "Context" and "Design decisions" (approved by the user on 2026-10-09; full Russian write-up in the approved plan).
+
+## Context
+
+1. Recolouring one colour at a time is tedious: stickers have 10–28 colours, but in practice they are 2–4 hue "families" (shades, highlights, gradients of one colour). Measured: Heart 10 colours → Красные (7) + Белые (3); Cool 20 → Жёлтые (8) + Голубые (11) + Белые (1); Animated 28 → Оранжевые (9) + Белые (3) + Серые (15) + Чёрные (1).
+2. The preview restarts on every edit: `LottiePlayer` from `tlottie/react` remounts whenever `data` changes.
+
+Goal: recolour by family (one action per family, shades move together) while the preview keeps playing from the current frame and shows changes instantly.
+
+User decisions: scope is only live preview + families; palette = family cards that expand into individual shades; NO "apply brand" automation; NO global hue/saturation/lightness sliders. Later iterations (not now): elements panel (hide/delete, click-to-select), logo/text (SVG → Lottie shapes, parenting, animation presets), templates with a manifest.
+
+Verified facts (Node, real wasm, samples): `node_modules/tlottie/dist/core/tlottie.wasm` instantiates with empty imports; its raw ABI is described in `node_modules/tlottie/dist/core/core/wasm.d.ts`. tlottie_new ≈ 1.6–1.9 ms, render 512² ≈ 1.4 ms, 1024² ≈ 4.7 ms; one main-thread preview update ≈ 8.4 ms; memory flat (~48 MB) after 600 rebuilds. Fractional frames are accepted; out-of-range frames clamp. The engine reports frame count 1 for the static `minimal.json`. `hd: true` is respected.
+
+## Extra global constraints (in addition to the Global Constraints above)
+
+- `src/player/{engine,clock,player}.ts` follow the `src/core` rules: no DOM/React at runtime, testable in Node. Only `player.worker.ts` and `Preview.tsx` touch Worker, OffscreenCanvas, ImageData or fetch.
+- Engine tests read `node_modules/tlottie/dist/core/tlottie.wasm` with `fs`. Keep `tlottie@0.1.24` pinned — it is the wasm source.
+- No new dependencies (OKLCH maths is ~60 lines).
+
+## Design decisions (user-approved 2026-10-09)
+
+- D13 Own player: the preview runs its own player on tlottie's wasm in a module Web Worker with an OffscreenCanvas. Edits, undo/redo and live previews swap the animation in place — same frame, same play state, no blank frame. Opening a file restarts at frame 0 (Preview remounts via `key`). Backing store 512 × min(2, devicePixelRatio). Live preview updates at most once per animation frame. Replaces D6's 150 ms throttle and Task 3's remount rule.
+- D14 Families: computed once per opened file and fixed until the next file. Identity is by colour site (walk-order ordinal), not by hex, so recoloured families never merge. Chromatic families first (most sites first), then Белые, Серые, Чёрные; Russian names from the key colour's hue. Whole-family recolour: chromatic families rotate hue, scale chroma and map lightness piecewise; neutral families are tinted.
+- D15 Palette: one card per family — key swatch (opens the picker, recolours the whole family), name, shade strip, and a «Оттенки · N» toggle when N > 1 that reveals today's swatch grid; an edit there changes only that shade within that family. fluid-hover (axis `xy`) only on the shade grid. One history step per commit.
+
+## Execution order (Iteration 2)
+
+7a, 7b, 8a, 8b independent. Player: 7c after 7a + 7b → 7d → 7e. Families: 8c after 8a + 8b. 8d after 8c and 7d (both edit `App.tsx`; 8d's browser check needs the new player). Executed sequentially by one controller.
+
+### Task 7a: tlottie wasm wrapper
+Files: `src/player/engine.ts`, `src/player/engine.test.ts`.
+
+```ts
+export interface Animation {
+  readonly frameCount: number // Math.max(1, tlottie_frame_count)
+  readonly frameRate: number  // tlottie_frame_rate
+  /** Straight-alpha RGBA (w*h*4), a view into wasm memory valid until the next engine call. null after drop() or on engine failure. */
+  render(frame: number, width: number, height: number): Uint8ClampedArray<ArrayBuffer> | null
+  drop(): void // idempotent
+}
+export interface Engine { create(json: string): Animation | null } // null: empty / alloc failure / tlottie rejected the JSON
+export async function loadEngine(wasm: BufferSource): Promise<Engine>
+```
+
+- **loadEngine.** Calls `WebAssembly.instantiate(wasm, {})`, then checks that these exports exist: `memory`, `tlottie_alloc`, `tlottie_free`, `tlottie_new`, `tlottie_drop`, `tlottie_frame_rate`, `tlottie_frame_count`, `tlottie_render`. If one is missing it throws `` `tlottie.wasm: нет экспорта ${name}` ``. This is the ABI guard.
+- **create.**
+  - Encode the JSON as UTF-8; length 0 → null.
+  - `tlottie_alloc`; 0 → null.
+  - Copy through a fresh `new Uint8Array(memory.buffer, ptr, len)`. Never cache views: memory growth detaches them.
+  - Call `tlottie_new`, then always `tlottie_free`. A result of 0 → null.
+- **render.** Calls `tlottie_render(inst, frame, w, h, 1)`, byte-identical to tlottie's default quality. Fractional frames are passed as is. A pointer of 0 → null.
+- **drop.** Calls `tlottie_drop` once and zeroes the handle.
+
+Tests:
+- `colors.json`:
+  - frameCount 60 and frameRate 60.
+  - `render(0,64,64)` has length 16384, and pixel (32,32) is `[255,0,0,255]`.
+- After `replaceColor(colors,'#ff0000','#0000ff')`, `render(30,64,64)` at (32,32) is `[0,0,255,255]`.
+- `minimal.json` at (1,1) has alpha 0.
+- `create('')`, `create('{not json')` and `create('{}')` → null.
+- Calling `drop()` twice doesn't throw; `render` after `drop` → null.
+- A wasm without exports (`[0,0x61,0x73,0x6d,1,0,0,0]`) rejects with «нет экспорта».
+- For every `samples/*.tgs` (or `colors.json` as fallback): frameCount === op − ip, and `render(0,64,64)` is not null.
+- Never use `minimal.json` for frame counts: it is static and reports 1.
+
+### Task 7b: Playback clock
+Files: `src/player/clock.ts`, `src/player/clock.test.ts`.
+
+```ts
+export class PlaybackClock {
+  get frame(): number      // fractional; 0 until retime() gives a frame count
+  get playing(): boolean   // true from construction (stickers autoplay)
+  retime(frameCount: number, frameRate: number): void // clamps frame to [0, frameCount-1] (0 if ≤ 0); keeps playing and anchor
+  play(): void             // playing = true; drops the anchor
+  pause(): void
+  seek(frame: number): void // clamp as retime; drops the anchor; playing unchanged
+  tick(nowMs: number): boolean // true iff frame changed. Not playing / frameCount ≤ 0 / frameRate ≤ 0 → false.
+                               // No anchor → anchor = now, false. Else dt = min(now − anchor, 100); anchor = now;
+                               // frame = (frame + dt·frameRate/1000) mod frameCount; return dt > 0
+}
+```
+
+Tests:
+- A new clock: frame 0, playing; `tick` → false before `retime`.
+- After `retime(180,60)`: `tick(1000)` → false (anchor only); `tick(1100)` → frame 6; `tick(1150)` → 9; `tick(6000)` → 15 (dt clamped to 100 ms).
+- Wrap: `seek(179)`, `tick(t)`, `tick(t+50)` → frame 2.
+- `pause()`: `tick` → false and the frame is kept. After `play()`, `tick(t+5000)` only sets the anchor with no jump; the next +100 ms → +6 frames.
+- `seek(-5)` → 0, `seek(500)` → 179, `seek(12.5)` → 12.5; `seek` doesn't change `playing`.
+- From 42.5: `retime(180,60)` keeps 42.5, `retime(30,60)` → 29, `retime(0,60)` → 0 and `tick` → false.
+
+### Task 7c: Preview player controller
+Files: `src/player/player.ts`, `src/player/player.test.ts`. Depends on 7a and 7b.
+
+```ts
+import type { Engine } from './engine'
+export type Blit = (rgba: Uint8ClampedArray<ArrayBuffer>, width: number, height: number) => void
+export interface PlayerState { playing: boolean; frame: number /* Math.floor(clock.frame) */; error: string | null }
+export type ToWorker =
+  | { type: 'init'; canvas: OffscreenCanvas; size: number }
+  | { type: 'load'; json: string }
+  | { type: 'play'; seq: number } | { type: 'pause'; seq: number }
+  | { type: 'seek'; seq: number; frame: number }
+  | { type: 'resize'; size: number }
+export interface FromWorker extends PlayerState { type: 'state'; seq: number }
+export class PreviewPlayer {
+  constructor(engine: Engine, blit: Blit, size: number)
+  load(json: string): void      // stored as pending; only the latest pending JSON is ever built
+  play(): void
+  pause(): void
+  seek(frame: number): void     // pause + clock.seek + redraw on next step
+  resize(size: number): void    // redraw on next step
+  step(nowMs: number): boolean  // one display frame; true = schedule another (playing && an animation exists)
+  get state(): PlayerState
+  destroy(): void               // drops the animation; later calls are no-ops
+}
+```
+
+What `step` does, in order:
+1. If a JSON is pending, call `engine.create` on it.
+   - Success: drop the old animation, call `clock.retime(frameCount, frameRate)` (frame and play state are kept), set `error = null`, and mark a redraw.
+   - Failure: set `error = 'движок не принял анимацию'` and keep the old animation.
+2. If `clock.tick(now)` returns true, mark a redraw.
+3. If a redraw is marked and an animation exists, call `render(clock.frame, size, size)` and pass the result to `blit`. If render returns null, set `error = 'не удалось отрисовать кадр'`.
+
+Tests run on the real engine with `colors.json`, a fake `blit` that records the size and centre pixel, and a wrapper that counts `create` calls:
+- Before any load: state `{playing:true, frame:0, error:null}`; `step` → false with no blit.
+- `load(red)` + `step(1000)`: one blit at size×size and `true`. `step(1100)` → frame 6.
+- **Swap keeps the frame:** `load(blue)` + `step(1150)` → frame 9 (not 0) and a blue pixel.
+- **Coalescing:** `load(a)`, `load(b)`, `step` → `create` called once, pixel from b.
+- **Bad JSON after a good one:** error set, the frame keeps advancing, the old image is still blitted. The next good load clears the error.
+- **Bad first load:** error set, no blit, `step` → false.
+- `seek(30.5)`: `playing` false; the next `step` blits once with frame 30, later steps neither blit nor return true. `play()`: anchor, then +100 ms → frame 36.
+- `resize(64)`: the next `step` blits 64×64 even while paused.
+- After `destroy()`: no blits.
+
+### Task 7d: Worker + Preview on the new player
+Files: `src/player/player.worker.ts`, `src/preview/Preview.tsx`, `src/App.tsx`. Depends on 7c.
+
+**Worker** (glue only):
+- Imports `import wasmUrl from '../../node_modules/tlottie/dist/core/tlottie.wasm?url'`. The relative path bypasses tlottie's `exports` map; the `*?url` types come from `vite/client`.
+- Uses `addEventListener('message', …)` and `postMessage` from the DOM lib; don't add the WebWorker lib.
+- Uses `raf` if the worker has it, else `setTimeout(…, 16)`.
+- **`init`:**
+  - `getContext('2d')`, otherwise the error «нет 2D-контекста OffscreenCanvas».
+  - Fetch the wasm (a non-ok response throws), then `loadEngine`, then `new PreviewPlayer`, then replay the messages queued while the engine was loading.
+  - On failure, post state with error `не удалось загрузить движок: …`.
+- **`blit`:** resize the canvas if needed, then `putImageData(new ImageData(rgba, w, h), 0, 0)`.
+- **Other messages:** go to the player (or the queue), remember the last `seq`, set `force = true`, then `schedule()`.
+- **Loop:** `again = player.step(now)`. Post `{type:'state', seq, ...state}` if `force` is set or ≥ 100 ms have passed since the last post. If `again`, schedule the next frame.
+
+**Preview** (same props and UI: Play/Pause, slider, «кадр N / total», «Ошибка предпросмотра: …»):
+- Remove the `tlottie/react` import and its CSS. The stage `div` (checkerboard, 512 px, ring) gets a ref and has no React children.
+- **Mount effect (`[]`):**
+  - No `transferControlToOffscreen` → error «браузер не поддерживает OffscreenCanvas».
+  - Otherwise create a **new `<canvas class="block size-full">` imperatively** and append it to the stage. This is what makes the StrictMode double effect safe.
+  - `new Worker(new URL('../player/player.worker.ts', import.meta.url), { type: 'module' })`.
+  - `init` with `size = round(512 × min(2, devicePixelRatio || 1))`, transferring the canvas.
+  - Watch `matchMedia('(resolution: <dpr>dppx)')` → `resize`, then re-subscribe.
+  - `worker.onerror` → «сбой потока предпросмотра».
+  - Cleanup: unsubscribe, `terminate()`, remove the canvas, set `sentJson = null`.
+- **Effect on `[json]`** (declared after the mount effect): if `json !== sentJson.current`, send `load` and remember it. After a StrictMode re-mount it always sends again.
+- **Controls:** `++seqRef` before every `play`, `pause` and `seek`.
+  - Toggle: updates `playing` optimistically.
+  - Slider: sets `frame` locally, sets `playing = false`, sends `seek`.
+  - `onmessage` applies `state` only when `m.seq === seqRef.current`, so stale echoes cause no flicker.
+
+**App:** `fileSeq` state, incremented on every successful load; `<Preview key={fileSeq} …/>`.
+
+Done when:
+- The gate passes, and `npm run build` emits a worker chunk and a `*.wasm` file in `dist/assets`.
+- In the dev server (`tgs-dev`) with the current palette:
+  - A sample plays; Play/Pause, the slider and the label work.
+  - Recolour, undo and redo change the colours while the frame counter keeps going.
+  - A new file starts from 0.
+  - There are no console errors, including "already transferred" after a reload.
+- If the relative `?url` import doesn't resolve, the fallback is to import the URL in Preview and pass it in `init`.
+
+### Task 7e: Remove LottiePlayer leftovers
+Files: `vite.config.ts`, `tsconfig.app.json`.
+- Delete `optimizeDeps.exclude: ['tlottie']` and drop "tlottie glue" from the `chunkSizeWarningLimit` comment.
+- Delete the `"tlottie/react"` entry and its comment from `paths`, keeping `@/*`.
+
+Done when: `grep -rn "tlottie/react" src vite.config.ts tsconfig.app.json` finds nothing, the gate passes, and in dev the preview plays and the wasm request returns 200.
+
+### Task 8a: Colour sites
+Files: `src/core/colors.ts`, `src/core/colors.test.ts`.
+
+```ts
+export interface ColorSite {
+  index: number            // walk-order ordinal, 0-based; stable while structure is unchanged
+  hex: string              // '#rrggbb' lowercase, alpha ignored
+  gradient: number | null  // walk-order ordinal of the gf/gs shape the stop belongs to; null for fl/st
+}
+export function readColorSites(anim: Lottie): ColorSite[]
+export function mapColorSites(anim: Lottie, fn: (site: ColorSite) => string | null): Lottie
+```
+
+- Rename the internal visitor type to `Visit` and give it a third argument, `gradient`.
+- The gradient counter increases for every `gf`/`gs` with a numeric `g.p`.
+- `mapColorSites` works on a `structuredClone` and walks in the same order.
+  - If `fn` returns `null` **or the current hex**, the site is left alone and keeps its original float values.
+  - Otherwise the hex is normalised (a malformed one throws) and only r, g, b are written.
+- `listColors` and `replaceColor` behave as before, and their tests stay unchanged.
+
+Tests:
+- `readColorSites(colors.json)` returns exactly 13 sites:
+  - indices 0–9, `gradient: null`: `#3366cc, #00ff00, #ff0000, #00ff00, #0000ff, #ffff00, #ffff00, #ff00ff, #008080, #0000ff`
+  - indices 10–12, `gradient: 0`: `#ff8000, #00ffff, #ff0000`
+- The hex counts from `readColorSites` match `listColors`.
+- `mapColorSites(·, () => null)` returns a new object equal to the input, and the input is not mutated.
+- Changing only index 12 changes only that gradient stop; index 2 (`#ff0000`) keeps its colour.
+- A fill of `[0.996,0,0,1]` keeps 0.996 when `fn` returns `'#fe0000'`.
+- `'#ABCDEF'` is accepted; `'red'` and `'#12345'` throw.
+- A `gf` followed by a `gs` get gradients 0 and 1.
+- Samples (or the fixture as fallback):
+  - The number of sites equals the sum of `listColors` counts.
+  - A `null` map returns an equal copy.
+  - After recolouring every other site, the length and `gradient` values are unchanged.
+
+### Task 8b: OKLCH helpers
+Files: `src/core/oklch.ts`, `src/core/oklch.test.ts`.
+
+```ts
+export interface Oklch { l: number; c: number; h: number } // l 0..1, c ≥ 0, h degrees [0, 360)
+export function hexToOklch(hex: string): Oklch     // any case; throws on malformed
+export function oklchToHex(color: Oklch): string   // l clamped [0,1], c<0 → 0; out of sRGB gamut → chroma reduced (binary search, same l,h); lowercase
+export function maxChroma(l: number, h: number): number // largest in-gamut chroma at (l,h), ±1e-4
+```
+
+Use Ottosson's OKLab matrices and the sRGB transfer function. A colour is in gamut when every linear channel is in [−1e-6, 1+1e-6].
+
+Tests:
+- Reference values (±0.001 for l and c, ±0.2° for h):
+  - `#ff0000` → (0.628, 0.258, 29.2)
+  - `#0000ff` → (0.452, 0.313, 264.1)
+  - `#00ff00` → (0.866, 0.295, 142.5)
+  - `#ffff00` → (0.968, 0.211, 109.8)
+- `#ffffff` → l 1, c < 1e-4; `#000000` → l 0, c 0.
+- Every colour on a step-15 grid round-trips exactly.
+- `{l:0.7, c:0.4, h:264}` → a valid hex within l ±0.01 and h ±2°.
+- `maxChroma(0.628, 29.23)` ≈ 0.258 (±0.002); `maxChroma(1,100)` and `maxChroma(0,100)` are < 0.005.
+- l = 1.2 → `#ffffff`; l = −0.1 → `#000000`.
+
+### Task 8c: Colour families
+Files: `src/core/families.ts`, `src/core/families.test.ts`. Depends on 8a and 8b.
+
+```ts
+export interface ColorFamily { id: number; name: string; neutral: boolean; sites: number[] /* asc */; keySite: number }
+export interface FamilyView { key: string; shades: { hex: string; count: number }[] } // shades by OKLCH l asc, then hex
+export function findFamilies(anim: Lottie): ColorFamily[]
+export function viewFamily(sites: ColorSite[], family: ColorFamily): FamilyView // sites = readColorSites(current anim)
+export function recolorFamily(anim: Lottie, family: ColorFamily, target: string): Lottie
+export function recolorShade(anim: Lottie, family: ColorFamily, from: string, to: string): Lottie // only family sites with hex === from
+```
+
+`findFamilies`:
+1. Take the unique hexes from `readColorSites`, each with its count, first index and OKLCH value.
+2. A colour is neutral if `c < 0.01 || c < 0.25 · maxChroma(l, h)`. Relative chroma reliably separates the greys (≤ 0.153) from the grey-blues (≥ 0.346).
+3. Cluster the chromatic colours: sort by (h, hex), start right after the largest circular gap, and join neighbours whose gap is ≤ **40°**.
+4. For every gradient, merge the clusters of its **chromatic** stops; neutral stops are ignored. Otherwise white chains every family in Cool into one.
+5. Group the neutral colours by l: ≥ 0.9 Белые, ≤ 0.25 Чёрные, the rest Серые.
+6. For each family:
+   - `sites` are all indices whose hex belongs to the group.
+   - The key is the colour with the highest count, then the highest c, then the smallest hex.
+   - `keySite` is the key's first index.
+7. Name chromatic families by the key's hue: [0,45) Красные, [45,80) Оранжевые, [80,125) Жёлтые, [125,180) Зелёные, [180,250) Голубые, [250,290) Синие, [290,325) Фиолетовые, [325,360) Розовые.
+8. Order chromatic families by `sites.length` descending, then key hue ascending, then Белые, Серые, Чёрные. Repeated names get « 2», « 3». `id` is the position in the list.
+
+`recolorFamily`:
+- `k` is the OKLCH of the current hex at `keySite`; `t` is the OKLCH of the target.
+- Tint mode applies if `family.neutral || k.c < 0.01`.
+- For each distinct hex in the family:
+  - The key hex maps to `target` exactly.
+  - Lightness: `l' = l ≤ k.l ? (k.l > 0 ? l·t.l/k.l : t.l) : (k.l < 1 ? t.l + (l−k.l)(1−t.l)/(1−k.l) : t.l)`.
+  - Tint mode: `c' = t.c, h' = t.h`. Otherwise: `c' = c·t.c/k.c, h' = (h + t.h − k.h) mod 360`.
+  - Convert with `oklchToHex`.
+- All writes happen in a single `mapColorSites` pass over the family's sites.
+
+Tests (helpers build animations from `minimal.json` with `fl`/`gf`):
+- Fixture families: Красные `[2,8,10,11,12]` (key 2), Зелёные `[1,3,5,6]` (key 1), Синие `[0,4,9]` (key 4), Розовые `[7]` (key 7). All are chromatic.
+- `#ffffff #fffffb #f4f4f4 #847375 #3e3531 #000000 #c7d6e4` → Голубые [#c7d6e4], Белые [3], Серые [#847375, #3e3531], Чёрные [#000000].
+- `#ff0000` + `#ff8000` → 1 family. `#ffff00` + `#0000ff` → 2 families.
+- Gradient `[#ff0000, #ffff00]` → 1 family, Красные. Gradient `[#ff0000, #ffffff]` plus a separate `#ffffff` → Красные and Белые (white is not pulled in).
+- `#9b0016 ×2, #ff2f00 ×2, #cd0a14` → key `#ff2f00`, keySite 2.
+- `#00ffff` + `#5f7b93` → «Голубые» and «Голубые 2».
+- Partition: on the fixture and on the samples, every index is in exactly one family.
+- Samples (when present), counts are shades:
+  - Heart: Красные 7, Белые 3.
+  - Cool: Жёлтые 8, Голубые 11, Белые 1.
+  - Animated: Оранжевые 9, Белые 3, Серые 15, Чёрные 1.
+- `viewFamily` on fixture Красные: key `#ff0000`; shades `#008080(1) #ff0000(2) #ff8000(1) #00ffff(1)`.
+- `recolorFamily`:
+  - With targets `#2266ff #8a2be2 #808080 #000000 #ffffff #00ff00`: `keySite` equals the target and sites outside the family are unchanged.
+  - Chromatic families keep their lightness order (tolerance 0.01).
+  - Recolouring to its own key changes nothing.
+  - Белые `[#ffffff, #f4f4f4]` → `#ffd1dc`: white becomes exactly `#ffd1dc`; `#f4f4f4` gets a hue within ±5° of the target and lower l.
+  - A grey family: every result with c > 0.02 has a hue within ±5° of the target.
+  - The input is not mutated.
+- `recolorShade(fixture, Зелёные, '#00ff00', '#ff0000')`, then `recolorShade(result, Красные, '#ff0000', '#000000')`: sites 2 and 12 become black, while sites 1 and 3 stay `#ff0000`.
+
+### Task 8d: Palette family cards
+Files: `src/ui/Palette.tsx`, `src/App.tsx`. Depends on 8c and 7d.
+
+```ts
+interface PaletteProps {
+  anim: Lottie; families: ColorFamily[]
+  onPreview: (next: Lottie | null) => void; onCommit: (next: Lottie) => void
+}
+```
+
+**Data:**
+- `sites = useMemo(() => readColorSites(anim), [anim])`
+- `views = families.map(f => viewFamily(sites, f))`
+
+**Layout:**
+- Title «Палитра». With no families, show «В стикере нет цветов».
+- One `li` per family:
+  - **Key swatch** (`PopoverTrigger`, `size-10`, filled with `view.key`), aria-label `«${name}»: ${key} — изменить всё семейство`.
+  - **Name**, with an `aria-hidden` strip of shades under it (equal segments, dark to light).
+  - **Toggle** «Оттенки · N» with a chevron: a ghost compact Fluid Button with `aria-expanded`/`aria-controls`. Shown only when N > 1; collapsed by default; its state is local to the card.
+- **Expanded:** a `ShadeGrid` with its own `useFluidHover(gridRef, { axis: 'xy', gapClick: false })` and `FluidHoverHighlight`.
+  - Swatches look like today's (hex, ×count), with `data-family` and `data-hex`.
+  - aria-label `Оттенок ${hex}, ${count} — изменить`.
+
+**Editing session:**
+- At most one session at a time: `{ family, shade: string | null, from, picked }`. `shade` is null for the key swatch.
+- Popover, picker, Enter, Esc and outside-click semantics are copied from the current code.
+- `apply` is `shade === null ? recolorFamily(anim, fam, picked) : recolorShade(anim, fam, from, picked)`, always applied to the committed `anim`.
+- **Live preview:** at most one pending `requestAnimationFrame`, which calls `onPreview(picked === from ? null : apply(...))`.
+  - `PREVIEW_THROTTLE_MS` and the `setTimeout` are removed.
+  - Cancel the rAF on finish and on unmount.
+- **Commit** only if `picked !== from`, then `onPreview(null)`.
+- **`anim` change** while the popover is open cancels the session, as now.
+- **Focus:** after an Enter commit of a shade, focus `[data-family=…][data-hex=<picked>]`.
+- Palette does no colour maths of its own.
+
+**App:**
+- `families` state. On a successful load, `setFamilies(findFamilies(anim))`.
+- `<Palette key={fileSeq} anim={present} families={families} … />`.
+
+Done when: the gate passes and end-to-end steps 1–7 pass in the browser.
+
+---
+
+## Final acceptance (Iteration 2)
+
+Orchestrator, dev server `tgs-dev` (port 5173):
+1. Each sample shows the families listed in Context; no console errors; wasm request 200.
+2. While playing, drag the first family's key picker ~3 s while sampling «кадр N» every 50 ms: N only decreases at loop wraps (≥ 170 → ≤ 10); screenshots show live colour changes, no blank/flashing frames.
+3. Pause → seek 90 → recolour: label stays 90, still frame shows new colours.
+4. Esc restores committed colours; Enter = one history step; Undo/Redo (buttons, ⌘Z/⇧⌘Z) work without interrupting playback.
+5. Expand «Оттенки», edit one shade: only it changes; Undo works.
+6. Heart: recolour Белые to pink — whites turn pink, reds unchanged.
+7. Open another file: preview from frame 0, cards collapsed, history empty; canvas stays sharp at browser zoom.
+8. Export a recoloured sticker → `bash scripts/check.sh <file>` passes, < 64 KB; re-opening rebuilds families from the new colours.
+9. `npm run build` + `npx vite preview`: plays, wasm and worker load from `dist/assets`.
+10. User: compare with Telegram, send an exported sticker.
