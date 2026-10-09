@@ -14,6 +14,11 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['tlottie'],
   },
+  build: {
+    // The editor (React, Base UI, framer-motion, tlottie glue) is one ~680 kB local-tool chunk;
+    // splitting it buys nothing here, so the default 500 kB warning is raised to keep builds quiet.
+    chunkSizeWarningLimit: 800,
+  },
   test: {
     // Agent worktrees live under .claude/worktrees/; their tests must not run in this checkout's gate.
     exclude: [...configDefaults.exclude, '.claude/**'],
