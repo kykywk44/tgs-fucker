@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   historyReducer,
   isTextEntryTarget,
+  isUndoKey,
   type HistoryAction,
   type HistoryState,
 } from './useHistory'
@@ -215,5 +216,32 @@ describe('isTextEntryTarget', () => {
   it('does not depend on the tag name case', () => {
     expect(isTextEntryTarget({ tagName: 'textarea' })).toBe(true)
     expect(isTextEntryTarget({ tagName: 'input', type: 'range' })).toBe(false)
+  })
+})
+
+describe('isUndoKey', () => {
+  it('accepts z and Z on a Latin layout', () => {
+    expect(isUndoKey({ key: 'z', code: 'KeyZ' })).toBe(true)
+    expect(isUndoKey({ key: 'Z', code: 'KeyZ' })).toBe(true)
+  })
+
+  it('accepts the physical Z key on a Cyrillic layout (key «я»)', () => {
+    expect(isUndoKey({ key: 'я', code: 'KeyZ' })).toBe(true)
+    expect(isUndoKey({ key: 'Я', code: 'KeyZ' })).toBe(true)
+  })
+
+  it('rejects a Latin letter other than z even when the code is KeyZ (AZERTY «w»)', () => {
+    expect(isUndoKey({ key: 'w', code: 'KeyZ' })).toBe(false)
+    expect(isUndoKey({ key: 'W', code: 'KeyZ' })).toBe(false)
+  })
+
+  it('accepts z by key when the code is not KeyZ (AZERTY «z» is on KeyW)', () => {
+    expect(isUndoKey({ key: 'z', code: 'KeyW' })).toBe(true)
+  })
+
+  it('rejects other keys', () => {
+    expect(isUndoKey({ key: 'y', code: 'KeyY' })).toBe(false)
+    expect(isUndoKey({ key: 'я', code: 'KeyQ' })).toBe(false)
+    expect(isUndoKey({ key: 'Enter', code: 'Enter' })).toBe(false)
   })
 })

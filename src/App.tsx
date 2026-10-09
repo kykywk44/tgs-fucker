@@ -50,7 +50,8 @@ function download(bytes: Uint8Array, name: string) {
   document.body.append(link)
   link.click()
   link.remove()
-  URL.revokeObjectURL(url)
+  // WebKit starts the download asynchronously after click(); revoking at once can fail it.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 function App() {

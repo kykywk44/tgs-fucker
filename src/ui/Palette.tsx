@@ -48,7 +48,7 @@ export function Palette({ anim, onPreview, onCommit }: PaletteProps) {
   const entries = useMemo(() => listColors(anim), [anim])
 
   const gridRef = useRef<HTMLDivElement>(null)
-  const hover = useFluidHover(gridRef, { axis: 'xy' })
+  const hover = useFluidHover(gridRef, { axis: 'xy', gapClick: false })
 
   // Hex of the swatch whose popover is open (this is what makes it open).
   const [openHex, setOpenHex] = useState<string | null>(null)

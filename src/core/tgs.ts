@@ -21,10 +21,21 @@ async function transform(
 // Reads a .tgs (gzip-compressed Lottie JSON) or a plain Lottie JSON file.
 export async function readTgs(bytes: Uint8Array): Promise<Lottie> {
   const isGzip = bytes[0] === GZIP_MAGIC_0 && bytes[1] === GZIP_MAGIC_1
-  const raw = isGzip
-    ? await transform(bytes, new DecompressionStream('gzip'))
-    : bytes
-  return JSON.parse(new TextDecoder().decode(raw)) as Lottie
+  let raw = bytes
+  if (isGzip) {
+    // A truncated or garbled stream rejects with a TypeError whose message is empty or
+    // misleading (browsers say «Failed to fetch»), so replace it with a readable one.
+    try {
+      raw = await transform(bytes, new DecompressionStream('gzip'))
+    } catch (cause) {
+      throw new Error('повреждённый gzip', { cause })
+    }
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(raw)) as Lottie
+  } catch (cause) {
+    throw new Error('некорректный JSON', { cause })
+  }
 }
 
 // Writes a Telegram-ready .tgs: sets tgs: 1, compact JSON, gzip. Never mutates `anim`.

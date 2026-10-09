@@ -106,6 +106,14 @@ export function isTextEntryTarget(
   return false
 }
 
+// True for the Z key. A Latin «z» matches by `key`; on a non-Latin layout (Russian: «я»)
+// `key` is not a letter a-z, so the physical position (`code`) decides. A Latin letter
+// other than z never matches: on AZERTY the physical Z key is labelled «w».
+export function isUndoKey(e: { key: string; code: string }): boolean {
+  if (e.key.toLowerCase() === 'z') return true
+  return !/^[a-z]$/i.test(e.key) && e.code === 'KeyZ'
+}
+
 // ⌘Z undoes and ⇧⌘Z redoes (Ctrl instead of ⌘ on other OS; either modifier is accepted
 // everywhere). preventDefault only when an action actually ran.
 export function useUndoShortcuts(h: {
@@ -122,7 +130,7 @@ export function useUndoShortcuts(h: {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey || e.isComposing) return
-      if (e.key.toLowerCase() !== 'z') return
+      if (!isUndoKey(e)) return
       if (e.target instanceof HTMLElement && isTextEntryTarget(e.target)) return
       const { undo, redo, canUndo, canRedo } = latest.current
       if (e.shiftKey) {

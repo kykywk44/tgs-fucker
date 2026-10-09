@@ -47,6 +47,30 @@ describe('readTgs / writeTgs', () => {
   })
 })
 
+describe('readTgs: corrupt input', () => {
+  it('reports a truncated gzip as «повреждённый gzip»', async () => {
+    const good = await writeTgs(minimal)
+    const truncated = good.slice(0, good.length - 6)
+    await expect(readTgs(truncated)).rejects.toThrow('повреждённый gzip')
+  })
+
+  it('reports garbage after the gzip magic as «повреждённый gzip»', async () => {
+    await expect(readTgs(new Uint8Array([0x1f, 0x8b, 0x00]))).rejects.toThrow('повреждённый gzip')
+  })
+
+  it('reports non-JSON text as «некорректный JSON»', async () => {
+    await expect(readTgs(new TextEncoder().encode('not json'))).rejects.toThrow(
+      'некорректный JSON',
+    )
+  })
+
+  it('keeps the original error as the cause', async () => {
+    const error = await readTgs(new TextEncoder().encode('not json')).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).cause).toBeInstanceOf(SyntaxError)
+  })
+})
+
 describe('sizeKb', () => {
   it('returns bytes / 1024 rounded to one decimal', () => {
     expect(sizeKb(new Uint8Array(1024))).toBe(1)
