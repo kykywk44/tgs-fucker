@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { telegramChecks, type Check } from '@/core/checks'
+import { findFamilies, type ColorFamily } from '@/core/families'
 import { readTgs, writeTgs, type Lottie } from '@/core/tgs'
 import { Preview } from '@/preview/Preview'
 import { Checks } from '@/ui/Checks'
@@ -61,6 +62,8 @@ function App() {
   // Bumped on every successful load: keys the preview so a new file restarts at frame 0,
   // while edits of the same file keep the same preview and swap the animation in place.
   const [fileSeq, setFileSeq] = useState(0)
+  // The colour families of the opened file (D14): computed once per file, fixed until the next.
+  const [families, setFamilies] = useState<ColorFamily[]>([])
   const [error, setError] = useState<string | null>(null)
   // The live preview while a swatch popover is open; null when nothing is being picked.
   const [previewAnim, setPreviewAnim] = useState<Lottie | null>(null)
@@ -77,7 +80,9 @@ function App() {
         const anim: unknown = await readTgs(new Uint8Array(await file.arrayBuffer()))
         assertLottie(anim)
         if (seq !== loadSeq.current) return
+        const found = findFamilies(anim) // before any state changes, so a failure leaves the old file intact
         reset(anim)
+        setFamilies(found)
         setFileName(file.name)
         setFileSeq((n) => n + 1)
         setError(null)
@@ -166,7 +171,13 @@ function App() {
               aria-label="Инспектор"
               className="flex shrink-0 flex-col gap-6 border-t border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l"
             >
-              <Palette anim={present} onPreview={setPreviewAnim} onCommit={handleCommit} />
+              <Palette
+                key={fileSeq}
+                anim={present}
+                families={families}
+                onPreview={setPreviewAnim}
+                onCommit={handleCommit}
+              />
               <Checks checks={checks} />
             </aside>
           </div>
