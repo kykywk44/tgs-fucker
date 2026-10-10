@@ -58,6 +58,9 @@ function App() {
   const history = useHistory<Lottie>()
   const { present, set, reset } = history
   const [fileName, setFileName] = useState<string | null>(null)
+  // Bumped on every successful load: keys the preview so a new file restarts at frame 0,
+  // while edits of the same file keep the same preview and swap the animation in place.
+  const [fileSeq, setFileSeq] = useState(0)
   const [error, setError] = useState<string | null>(null)
   // The live preview while a swatch popover is open; null when nothing is being picked.
   const [previewAnim, setPreviewAnim] = useState<Lottie | null>(null)
@@ -76,6 +79,7 @@ function App() {
         if (seq !== loadSeq.current) return
         reset(anim)
         setFileName(file.name)
+        setFileSeq((n) => n + 1)
         setError(null)
         setPreviewAnim(null)
         setChecks([]) // the effect below fills in the new file's checks
@@ -155,7 +159,7 @@ function App() {
                 left edge when the pane is narrower than the 512 px stage. */}
             <main className="flex flex-none overflow-auto p-6 lg:min-w-0 lg:flex-1">
               <div className="m-auto">
-                <Preview json={json} totalFrames={shown.op - shown.ip} />
+                <Preview key={fileSeq} json={json} totalFrames={shown.op - shown.ip} />
               </div>
             </main>
             <aside
