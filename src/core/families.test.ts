@@ -445,6 +445,7 @@ describe('families on samples', () => {
 
       const sites = readColorSites(anim)
       for (const family of findFamilies(anim)) {
+        // Tint mode flattens near-whites/greys, so recolouring a neutral family to its own key is not a no-op; the Palette never applies an edit when the picked colour equals the original.
         if (family.neutral) continue
         const key = sites[family.keySite].hex
         expect(recolorFamily(anim, family, key), family.name).toEqual(anim)

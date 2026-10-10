@@ -71,8 +71,9 @@ function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v))
 }
 
-// Largest chroma at (l, h) that stays in gamut, found by bisection. The sRGB
-// cube is convex in OKLab, so in-gamut chroma is a single interval from 0.
+// Largest chroma at (l, h) that stays in gamut, found by bisection. In-gamut
+// chroma is practically a single interval from 0 (except a sub-0.1° sliver near
+// pure blue, h ≈ 264°, where bisection finds the first exit).
 // eps is the per-channel slack: the hex path uses GAMUT_EPS, while maxChroma
 // uses 0 so that near-black l does not inherit the cube-root amplification.
 function fitChroma(l: number, h: number, tolerance: number, eps: number): number {
