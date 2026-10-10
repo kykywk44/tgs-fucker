@@ -11,11 +11,8 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  optimizeDeps: {
-    exclude: ['tlottie'],
-  },
   build: {
-    // The editor (React, Base UI, framer-motion, tlottie glue) is one ~680 kB local-tool chunk;
+    // The editor (React, Base UI, framer-motion) is one ~680 kB local-tool chunk;
     // splitting it buys nothing here, so the default 500 kB warning is raised to keep builds quiet.
     chunkSizeWarningLimit: 800,
   },
