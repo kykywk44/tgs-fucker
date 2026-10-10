@@ -12,9 +12,18 @@ export interface ColorEntry { hex: string; count: number }
 // (`gf`) and strokes (`gs`), anywhere in `layers`, `assets[].layers`, `gr.it`.
 // Solid-layer colors, effects and text are forbidden in .tgs and not handled.
 
-// Called with the array holding a color and the index of its red component;
-// green and blue follow at index + 1 and index + 2.
-type ColorSite = (values: number[], at: number) => void
+// One color occurrence. `index` is its walk-order ordinal (0-based), stable
+// while the structure of the animation is unchanged. `gradient` is the
+// walk-order ordinal of the gf/gs it belongs to, or null for fl/st.
+export interface ColorSite {
+  index: number
+  hex: string
+  gradient: number | null
+}
+
+// Called with the array holding a color, the index of its red component (green
+// and blue follow at index + 1 and index + 2) and the gradient ordinal (or null).
+type Visit = (values: number[], at: number, gradient: number | null) => void
 
 type Json = Record<string, unknown>
 
@@ -63,33 +72,72 @@ function eachValue(prop: unknown, visit: (values: number[]) => void): void {
 }
 
 // Fill / stroke color: [r, g, b] or [r, g, b, a].
-function visitColor(prop: unknown, site: ColorSite): void {
+function visitColor(prop: unknown, visit: Visit): void {
   eachValue(prop, (values) => {
-    if (values.length >= 3) site(values, 0)
+    if (values.length >= 3) visit(values, 0, null)
   })
 }
 
 // Gradient: the first `p` stops of `k` are [offset, r, g, b]. Whatever follows
 // them is opacity stops [offset, alpha] and is not a color.
-function visitGradient(gradient: unknown, site: ColorSite): void {
-  if (!isObject(gradient) || typeof gradient.p !== 'number') return
-  const stops = gradient.p
+function visitGradient(gradient: Json, ordinal: number, visit: Visit): void {
+  const stops = gradient.p as number
   eachValue(gradient.k, (values) => {
-    for (let i = 0; i < stops && i * 4 + 3 < values.length; i++) site(values, i * 4 + 1)
+    for (let i = 0; i < stops && i * 4 + 3 < values.length; i++) visit(values, i * 4 + 1, ordinal)
   })
 }
 
-function walk(node: unknown, site: ColorSite): void {
-  if (Array.isArray(node)) {
-    for (const item of node) walk(item, site)
-    return
+// Pre-order walk, object keys in insertion order. Gradients are numbered in
+// the order their gf/gs nodes are reached; a gf/gs without a numeric `p` is
+// not a gradient and takes no number.
+function walk(root: unknown, visit: Visit): void {
+  let gradients = 0
+  const visitNode = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const item of node) visitNode(item)
+      return
+    }
+    if (!isObject(node)) return
+    if (node.ty === 'fl' || node.ty === 'st') {
+      visitColor(node.c, visit)
+    } else if ((node.ty === 'gf' || node.ty === 'gs') && isObject(node.g) && typeof node.g.p === 'number') {
+      visitGradient(node.g, gradients++, visit)
+    }
+    for (const value of Object.values(node)) {
+      if (typeof value === 'object' && value !== null) visitNode(value)
+    }
   }
-  if (!isObject(node)) return
-  if (node.ty === 'fl' || node.ty === 'st') visitColor(node.c, site)
-  else if (node.ty === 'gf' || node.ty === 'gs') visitGradient(node.g, site)
-  for (const value of Object.values(node)) {
-    if (typeof value === 'object' && value !== null) walk(value, site)
-  }
+  visitNode(root)
+}
+
+// Every color occurrence in walk order. Alpha is ignored; no field is changed.
+export function readColorSites(anim: Lottie): ColorSite[] {
+  const sites: ColorSite[] = []
+  walk(anim, (values, at, gradient) => {
+    sites.push({ index: sites.length, hex: hexAt(values, at), gradient })
+  })
+  return sites
+}
+
+// Returns a deep copy of `anim` where each site is recoloured to `fn(site)`.
+// A null result, or the site's current hex, leaves its floats untouched. Other
+// sites are written as r, g, b only (alpha and component count are kept).
+// Walks in the same order as readColorSites. Throws on a malformed hex.
+export function mapColorSites(anim: Lottie, fn: (site: ColorSite) => string | null): Lottie {
+  const result = structuredClone(anim)
+  let index = 0
+  walk(result, (values, at, gradient) => {
+    const site: ColorSite = { index: index++, hex: hexAt(values, at), gradient }
+    const next = fn(site)
+    if (next === null) return
+    const hex = normalizeHex(next)
+    if (hex === site.hex) return
+    const [r, g, b] = hexToChannels(hex)
+    values[at] = r
+    values[at + 1] = g
+    values[at + 2] = b
+  })
+  return result
 }
 
 // Unique colors with how many times each occurs (every static color, every

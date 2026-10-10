@@ -5,7 +5,13 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import colorsFixture from './__fixtures__/colors.json'
 import minimal from './__fixtures__/minimal.json'
-import { listColors, replaceColor, type ColorEntry } from './colors'
+import {
+  listColors,
+  mapColorSites,
+  readColorSites,
+  replaceColor,
+  type ColorEntry,
+} from './colors'
 import { readTgs, type Lottie } from './tgs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -317,6 +323,147 @@ describe('samples', () => {
       const after = listColors(result)
       expect(countOf(after, top.hex)).toBe(0)
       expect(countOf(after, target)).toBe(top.count + countOf(list, target))
+    })
+  }
+})
+
+describe('readColorSites', () => {
+  const SITE_HEXES = [
+    '#3366cc', '#00ff00', '#ff0000', '#00ff00', '#0000ff',
+    '#ffff00', '#ffff00', '#ff00ff', '#008080', '#0000ff',
+    '#ff8000', '#00ffff', '#ff0000',
+  ]
+
+  it('returns the 13 fixture sites in walk order with their gradient ordinals', () => {
+    const sites = readColorSites(fixture)
+    expect(sites.map((site) => site.hex)).toEqual(SITE_HEXES)
+    expect(sites.map((site) => site.index)).toEqual(SITE_HEXES.map((_, i) => i))
+    expect(sites.map((site) => site.gradient)).toEqual([
+      ...Array(10).fill(null),
+      0, 0, 0,
+    ])
+  })
+
+  it('agrees with listColors on every hex count', () => {
+    const counts = new Map<string, number>()
+    for (const site of readColorSites(fixture)) counts.set(site.hex, (counts.get(site.hex) ?? 0) + 1)
+    for (const entry of listColors(fixture)) expect(counts.get(entry.hex)).toBe(entry.count)
+    expect(counts.size).toBe(listColors(fixture).length)
+  })
+
+  it('gives a gf followed by a gs the gradient ordinals 0 and 1', () => {
+    const anim = withShapes([
+      { ty: 'gf', g: { p: 1, k: { a: 0, k: [0, 1, 0, 0] } } },
+      { ty: 'gs', g: { p: 1, k: { a: 0, k: [0, 0, 0, 1] } } },
+    ])
+    const sites = readColorSites(anim)
+    expect(sites.map((site) => [site.hex, site.gradient])).toEqual([
+      ['#ff0000', 0],
+      ['#0000ff', 1],
+    ])
+  })
+
+  it('does not count a gradient without a numeric p', () => {
+    const anim = withShapes([
+      { ty: 'gf', g: { k: { a: 0, k: [0, 1, 0, 0] } } },
+      { ty: 'gs', g: { p: 1, k: { a: 0, k: [0, 0, 0, 1] } } },
+    ])
+    expect(readColorSites(anim).map((site) => site.gradient)).toEqual([0])
+  })
+
+  it('does not mutate its input', () => {
+    const snapshot = structuredClone(fixture)
+    readColorSites(fixture)
+    expect(fixture).toEqual(snapshot)
+  })
+})
+
+describe('mapColorSites', () => {
+  it('returns an equal copy when fn returns null, and does not mutate the input', () => {
+    const snapshot = structuredClone(fixture)
+    const result = mapColorSites(fixture, () => null)
+    expect(result).toEqual(fixture)
+    expect(result).not.toBe(fixture)
+    expect(fixture).toEqual(snapshot)
+  })
+
+  it('changes only the gradient stop at index 12', () => {
+    const result = mapColorSites(fixture, (site) => (site.index === 12 ? '#123456' : null))
+    const expected = structuredClone(fixture) as Lottie
+    const stops = getAt(expected, GRADIENT) as number[]
+    stops.splice(9, 3, ...rgb('#123456'))
+    expect(result).toEqual(expected)
+    expect(readColorSites(result)[2].hex).toBe('#ff0000')
+    expect(readColorSites(result)[12].hex).toBe('#123456')
+  })
+
+  it('keeps index 2 (#ff0000) unchanged when only other sites are recoloured', () => {
+    const result = mapColorSites(fixture, (site) => (site.index === 2 ? null : '#123456'))
+    expect(readColorSites(result)[2].hex).toBe('#ff0000')
+    expect(getAt(result, STATIC_FILL)).toEqual(getAt(fixture, STATIC_FILL))
+  })
+
+  it('keeps the original floats when fn returns the current hex', () => {
+    const anim = withShapes([{ ty: 'fl', c: { a: 0, k: [0.996, 0, 0, 1] } }])
+    const result = mapColorSites(anim, () => '#fe0000')
+    expect(getAt(result, ['layers', 0, 'shapes', 0, 'c', 'k'])).toEqual([0.996, 0, 0, 1])
+    expect(result).toEqual(anim)
+  })
+
+  it('accepts upper-case hex', () => {
+    const anim = withShapes([{ ty: 'fl', c: { a: 0, k: [1, 0, 0, 1] } }])
+    const result = mapColorSites(anim, () => '#ABCDEF')
+    expect(getAt(result, ['layers', 0, 'shapes', 0, 'c', 'k'])).toEqual([...rgb('#abcdef'), 1])
+  })
+
+  it('throws on a malformed hex returned by fn', () => {
+    const anim = withShapes([{ ty: 'fl', c: { a: 0, k: [1, 0, 0, 1] } }])
+    expect(() => mapColorSites(anim, () => 'red')).toThrow(/hex color/i)
+    expect(() => mapColorSites(anim, () => '#12345')).toThrow(/hex color/i)
+  })
+
+  it('gives the same indices to the same sites as readColorSites', () => {
+    const seen: number[] = []
+    mapColorSites(fixture, (site) => {
+      seen.push(site.index)
+      return null
+    })
+    expect(seen).toEqual(readColorSites(fixture).map((site) => site.index))
+  })
+})
+
+describe('colour sites on samples', () => {
+  const files = listSampleFiles()
+
+  if (files.length === 0) {
+    it('falls back to the fixture when there are no sample files', () => {
+      const sites = readColorSites(fixture)
+      const total = listColors(fixture).reduce((sum, entry) => sum + entry.count, 0)
+      expect(sites).toHaveLength(total)
+      const recoloured = mapColorSites(fixture, (site) => (site.index % 2 === 0 ? '#010203' : null))
+      expect(readColorSites(recoloured).map((site) => site.gradient)).toEqual(
+        readColorSites(fixture).map((site) => site.gradient),
+      )
+      expect(mapColorSites(fixture, () => null)).toEqual(fixture)
+    })
+  }
+
+  for (const file of files) {
+    it(`${basename(file)}: site count matches listColors and recolouring keeps the structure`, async () => {
+      const anim = await readTgs(new Uint8Array(readFileSync(file)))
+      const snapshot = structuredClone(anim)
+      const sites = readColorSites(anim)
+      const total = listColors(anim).reduce((sum, entry) => sum + entry.count, 0)
+      expect(sites).toHaveLength(total)
+      expect(anim).toEqual(snapshot)
+
+      expect(mapColorSites(anim, () => null)).toEqual(anim)
+
+      const recoloured = mapColorSites(anim, (site) => (site.index % 2 === 0 ? '#010203' : null))
+      expect(anim).toEqual(snapshot)
+      const after = readColorSites(recoloured)
+      expect(after).toHaveLength(sites.length)
+      expect(after.map((site) => site.gradient)).toEqual(sites.map((site) => site.gradient))
     })
   }
 })
