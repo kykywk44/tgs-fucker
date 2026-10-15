@@ -747,7 +747,7 @@ Profiles (exact):
 | nm | id · name | select | key |
 |---|---|---|---|
 | `Eye` | `iris` · Радужка | `{layer:'Group 11'}`, `{layer:'Group 1'}` | `{layer:'Group 11', path:['Group 4']}`, nth 1 (#9c620d) |
-| | `pupil` · Зрачок | `{layer:'Zrachok'}` | same, nth 0 (#200302) |
+| | `pupil` · Зрачок | `{layer:'Zrachok'}` | `{layer:'Zrachok'}`, nth 0 (#200302) |
 | | `sclera` · Белок | `{layer:'Group 3'}`, `{layer:'Group 2'}` | `{layer:'Group 3'}`, nth 0 (#fcfcfc) |
 | | `lids` · Веки | `{layer:'Group 8'}`, `{layer:'Group 9'}`, `{layer:'Слой 9'}` | `{layer:'Group 8'}`, nth 3 (#534f55) |
 | `HEART RED` | `heart` · Сердце | `{asset:'comp_0', layer:'base'}`, `…'base 4'`, `…'volume stroke'`, `…'volume stroke 2'` | `{asset:'comp_0', layer:'base', path:['fill']}`, nth 0 (#fe1512) |
