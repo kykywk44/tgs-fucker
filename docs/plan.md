@@ -621,3 +621,273 @@ Orchestrator, dev server `tgs-dev` (port 5173):
 8. Export a recoloured sticker → `bash scripts/check.sh <file>` passes, < 64 KB; re-opening rebuilds families from the new colours.
 9. `npm run build` + `npx vite preview`: plays, wasm and worker load from `dist/assets`.
 10. User: compare with Telegram, send an exported sticker.
+
+---
+
+# Iteration 3 — Sticker parts + editable inscription
+
+Spec: this section's "Context" and "Design decisions" (approved by the user on 2026-10-14; full Russian write-up in the approved plan `~/.claude/plans/indexed-knitting-fox.md`).
+
+## Context
+
+Family editing (Iteration 2) works on any file but edits abstract hues, not what a person sees. The user wants the system to know a sticker's real parts and edit those: Eye — iris, pupil, sclera and lids separately; Heart — its main colour; Cool — the box, its effects and the **inscription text**. Family/shade editing stays but moves below.
+
+Verified facts (samples):
+- Layer names are arbitrary («Group 8», «Слой 9»), so parts need hand-written knowledge.
+- Cool's letters are shapes, not text (text layers are forbidden). Container `COOL › 1 › Group 1 › Group 1` holds letter groups `4,3,2,1` (= L,O,O,C, reverse reading order; the first item of `it` draws on top) plus its `tr`. Each letter group = [face `gr` (white `fl`), shadow `gr` (`fl` #5f7b93, drawn under the face, 3 px higher at kf 0), `tr`]. Letter `tr`: `p = a` (letter centre), scale pop keyframes 100 → 140 → 100 at start+0/+12/+23 with easing `i {x:[.5,.5],y:[1,1]}`, `o {x:[.333,.333],y:[0,0]}` then `i/o .833/1`; starts 124/130/136/142. Face/shadow `sh` paths have 9 keyframes at t = [0,26,39,44,65,80,83,84,123] with `{i,o,t,s}` (last one `s` only); shadow vertices correspond 1:1 to face vertices. Keyframes 0 and 8 face the viewer.
+- **For every keyframe k one 2D homography maps all face vertices + absolute handles at kf 0 (container coordinates) onto kf k with max error ≤ 0.11 px; likewise face kf 0 → shadow kf k.** Affine fails (up to 38 px). New text is laid out flat at kf 0 and animated by applying the fitted homographies.
+- Cap box of the original letters at kf 0 (container coordinates, from L): x 78.35…433.65, y 198.78…313.22. op = 180.
+- Original letters ≈ 6.3 KB gzipped; whole Cool 24.4 KB gzipped; limit 64 KB.
+- The walk visits `assets` before `layers`; `comp_0` is walked once, so recolouring it changes every instance.
+- `recolorFamily` only reads `sites`, `keySite`, `neutral`, so a part can be recoloured by it.
+- `samples/` is untracked: core tests use synthetic fixtures; sample tests skip when files are absent.
+
+## Extra global constraints (Iteration 3)
+
+- `src/core/{parts,glyphs,homography,text}.ts` and `src/core/profiles/*` follow the `src/core` rules (pure TS, no DOM/React, never mutate inputs, testable in Node).
+- New dependencies: devDependencies `opentype.js` and `@fontsource/roboto` (Roboto 900, OFL-1.1), used **only** by `scripts/build-glyphs.mjs`; the app bundle never imports them. Nothing else unless the controller rules so.
+- Tests that need `samples/*.tgs` skip (not fail) when the file is absent.
+- UI copy in Russian.
+
+## Design decisions (user-approved 2026-10-14)
+
+- D16 Sticker profiles in code. A profile names parts and selects them by layer/group names. A file matches a profile when its root `nm` equals the profile's, every selector finds ≥ 1 node, every part has ≥ 1 colour site, the key site lies inside its part, and parts don't overlap. Unknown stickers show only the palette, as today. (AI-written profiles: later, not now.)
+- D17 Parts: Eye — Радужка, Зрачок, Белок, Веки (glints stay in the palette). Heart — Сердце. Cool — Коробка (incl. letter shadows), Надпись, Огонь, Искры, Блики.
+- D18 Inscription (amends D14): any Cyrillic + Latin text, 1–6 characters after normalisation (upper-cased, trimmed, inner whitespace runs → one space), at least one non-space. Letters come from bundled Roboto 900 glyph data and replay the original letters' animation (box turn via homographies, staggered pops 6 frames apart). A text edit changes the site count, so palette families are **carried over** through a site-origin map, never recomputed; history stores `{ anim, families }`.
+- D19 Inspector order: Части → Палитра → Проверки Telegram. The palette itself is unchanged.
+- D20 One colour-editing session for the whole inspector (shared hook used by Palette and Parts).
+
+## Execution order (Iteration 3)
+
+9a, 9b, 9d are independent. 9c after 9b. 9e after 9c + 9d. 9f after 9a + 9c. 9g after 9e + 9f. Executed sequentially by one controller: 9a → 9b → 9d → 9c → 9e → 9f → 9g.
+
+### Task 9a: Shared colour session
+Files: `src/ui/colorSession.tsx` (new), `src/ui/Palette.tsx`, `src/App.tsx`.
+
+Move the editing-session machinery out of `Palette.tsx` **without behaviour change**: the session ref, the single pending rAF live preview, `pick`, `finish(commit, viaKeyboard)`, open/close handling (opening another target commits the current one; Esc cancels; outside click / second click / focus leaving commit), cancelling the session when `anim` changes, cleanup on unmount, `OWN_ENTER_SELECTOR` + the popup Enter handler, and `PickerPopup`.
+
+```ts
+export interface ColorTarget {
+  id: string                                         // 'family:<id>' | 'shade:<id>:<hex>' | 'part:<id>'
+  from: string                                       // colour the picker starts from
+  apply(committed: Lottie, picked: string): Lottie   // always applied to the committed animation
+  refocus?(picked: string): string[]                 // selectors tried in order inside rootRef after an Enter commit
+}
+export interface ColorSession {
+  openId: string | null
+  onOpenChange(target: ColorTarget, open: boolean, reason: string): void
+  onPick(hex: string): void
+  onPopupKeyDown(event: KeyboardEvent<HTMLElement>): void
+}
+export function useColorSession(options: {
+  anim: Lottie | null
+  onPreview(next: Lottie | null): void
+  onCommit(next: Lottie): void
+  rootRef: RefObject<HTMLElement | null>
+}): ColorSession
+export function PickerPopup(props: { from: string; session: ColorSession }): JSX.Element
+```
+
+- `App` owns the hook (one call, unconditional), `rootRef` = the inspector `<aside>`, and passes `session` to `Palette`. `Palette` props become `{ anim, families, session }` (no `onPreview`/`onCommit`).
+- Palette targets: key swatch `family:${id}` → `recolorFamily`; shade swatch `shade:${id}:${hex}` → `recolorShade(committed, family, hex, picked)` with `refocus: p => [\`[data-family="${id}"][data-hex="${p}"]\`, \`[data-family-key="${id}"]\`]`.
+- Focus after an Enter commit: the old `focusShade` becomes "pending refocus selectors", consumed by an effect on `[anim]` one rAF late, exactly as today.
+- Return a memoised session object.
+
+Done when: gate passes; in the browser (Heart, Eye) family key live preview while dragging, Esc restores, Enter = one history step, Enter on a shade keeps keyboard focus on the shade with the new colour, Undo/Redo work, no console errors.
+
+### Task 9b: Sites inside nodes
+Files: `src/core/colors.ts`, `src/core/colors.test.ts`.
+
+```ts
+// Indices (ascending = readColorSites walk order) of the colour sites lying inside one of
+// `nodes`, matched by object identity (a layer, a shape group, an asset, the root …).
+export function sitesWithin(anim: Lottie, nodes: ReadonlySet<object>): number[]
+```
+- Reuse the internal `walk`: track an "inside" depth by node identity while descending. `readColorSites`, `mapColorSites`, `listColors`, `replaceColor` behave exactly as before (their tests stay unchanged).
+
+Tests (on `colors.json`, expected index lists written out explicitly after reading the fixture):
+- empty set → `[]`; `{ anim }` → `0..12`.
+- the precomp asset's layer → exactly that asset's sites; a nested `gr` → only its sites; the outer group of a nested group includes the inner group's sites.
+- a node and its descendant together → no duplicates.
+- a fixture variant with two precomp layers referencing one asset: the asset's sites appear once.
+
+Done when: tests pass; gate passes.
+
+### Task 9c: Parts and profiles
+Files: `src/core/parts.ts`, `src/core/parts.test.ts`, `src/core/profiles/eye.ts`, `src/core/profiles/heart.ts`, `src/core/profiles/cool.ts`, `src/core/profiles/index.ts`, `src/core/families.ts`, `src/core/__fixtures__/parts.json`.
+
+```ts
+export interface Selector {
+  asset?: string    // id of an `assets[]` entry: search its layers; absent = root `layers`
+  layer: string     // layer `nm`; '*' = any layer; 'Ding_*' (trailing *) = name prefix
+  path?: string[]   // groups inside the layer's `shapes`, outermost first: a name (all `gr` with that nm),
+                    // '*' (every `gr`), '#n' (the n-th `gr` item, 0-based, counting `gr` items only)
+}
+export interface TextSpec {
+  container: Selector                                   // the group whose `gr` items are the letter groups
+  original: string                                      // text of the original letters, reading order
+  box: { x0: number; y0: number; x1: number; y1: number } // cap box of the original letters at path kf 0, container coords
+  pop: { first: number; step: number }                  // first letter's pop start frame; frames between starts
+  maxLength: number
+}
+export interface PartSpec { id: string; name: string; select: Selector[]; key: { select: Selector; nth?: number }; text?: TextSpec }
+export interface StickerProfile { id: string; match: { nm: string }; parts: PartSpec[] }
+export interface Part { id: string; name: string; sites: number[]; keySite: number; neutral: boolean; text: TextSpec | null }
+
+export function resolveSelector(anim: Lottie, selector: Selector): object[]   // matched layers (no path) or groups
+export function resolveParts(anim: Lottie, profile: StickerProfile): Part[] | null
+export function matchProfile(anim: Lottie): { profile: StickerProfile; parts: Part[] } | null // first PROFILES entry that resolves
+```
+- `Part.sites` = `sitesWithin` of the union of its selectors' nodes. `keySite` = the `nth` (default 0) site of `sitesWithin(key.select nodes)`. `neutral` = `isNeutral` of the current hex at `keySite`. `text` = `spec.text ?? null`. Parts keep profile order.
+- `resolveParts` returns `null` when: `anim.nm !== profile.match.nm`; any selector (part, key, text container) matches nothing; a part has no sites; `nth` is out of range; the key site is not in the part; two parts share a site.
+- `families.ts`: export `isNeutral(color: Oklch)`; widen `recolorFamily` and `viewFamily` to `Pick<ColorFamily, 'sites' | 'keySite' | 'neutral'>` (no behaviour change).
+
+Profiles (exact):
+
+| nm | id · name | select | key |
+|---|---|---|---|
+| `Eye` | `iris` · Радужка | `{layer:'Group 11'}`, `{layer:'Group 1'}` | `{layer:'Group 11', path:['Group 4']}`, nth 1 (#9c620d) |
+| | `pupil` · Зрачок | `{layer:'Zrachok'}` | same, nth 0 (#200302) |
+| | `sclera` · Белок | `{layer:'Group 3'}`, `{layer:'Group 2'}` | `{layer:'Group 3'}`, nth 0 (#fcfcfc) |
+| | `lids` · Веки | `{layer:'Group 8'}`, `{layer:'Group 9'}`, `{layer:'Слой 9'}` | `{layer:'Group 8'}`, nth 3 (#534f55) |
+| `HEART RED` | `heart` · Сердце | `{asset:'comp_0', layer:'base'}`, `…'base 4'`, `…'volume stroke'`, `…'volume stroke 2'` | `{asset:'comp_0', layer:'base', path:['fill']}`, nth 0 (#fe1512) |
+| `COOL_emoji_🆒` | `box` · Коробка | `{layer:'COOL', path:['1','Group 3']}`, `['1','Group 2']`, `['1','Group 1','0']`, `['1','Group 1','1']`, `['1','Group 1','Group 5']`, `['1','Group 1','Group 1','*','#1']` (letter shadows) | `{layer:'COOL', path:['1','Group 1','1']}`, nth 0 (#86bfe4) |
+| | `text` · Надпись | `{layer:'COOL', path:['1','Group 1','Group 1','*','#0']}` (letter faces) | `{layer:'COOL', path:['1','Group 1','Group 1','#0','#0']}`, nth 0 (#ffffff) |
+| | `fire` · Огонь | `{asset:'comp_0', layer:'*'}`, `{layer:'Flame_glow_*'}`, `{layer:'COOL', path:['1','Group 1','2']}` (fire reflection) | `{asset:'comp_0', layer:'1', path:['Group 3']}`, nth 0 (#fb9600) |
+| | `sparks` · Искры | `{layer:'Ding_*'}` | `{layer:'Ding_1', path:['1']}`, nth 0 (#ffc600) |
+| | `glints` · Блики | `{layer:'Shine'}`, `{layer:'blik'}`, `{layer:'blik 3'}` | `{layer:'Shine'}`, nth 1 (#7ff7ff) |
+
+Cool's `text` part has `text: { container: {layer:'COOL', path:['1','Group 1','Group 1']}, original: 'COOL', box: {x0: 78.35, y0: 198.78, x1: 433.65, y1: 313.22}, pop: {first: 124, step: 6}, maxLength: 6 }`.
+
+Tests:
+- Synthetic `parts.json` (root nm `Fixture`): an asset `comp_x` with layers `a`, `b` (fills); two precomp layers `pre` → `comp_x`; shape layer `Body` with group `Outer` › [`Inner` (fl), `Inner` (fl, same name), `Other` (gf)]; shape layers `Spark_1`, `Spark_2`. Cover: whole layer; duplicate group names both match; `#1`; `*`; `Spark_*`; `{asset, layer:'*'}`; missing name → `[]`.
+- `resolveParts` null cases: nm mismatch, renamed layer, overlapping parts, `nth` out of range, key outside part. Correct `keySite`/`neutral` otherwise.
+- `recolorFamily(anim, part, '#00ff00')` changes only that part's sites.
+- Samples (skip when absent): `matchProfile` returns the right profile with parts in table order; key hexes as in the table; parts of each sticker are disjoint; Heart's part has no neutral colour; Cool `fire` contains every `comp_0` site; recolouring each part leaves every site outside it unchanged. `minimal.json` → `null`.
+
+Done when: tests pass; gate passes.
+
+### Task 9d: Glyph data
+Files: `scripts/build-glyphs.mjs`, `scripts/README.md` (one line), `package.json` (devDependencies + script `"glyphs": "node scripts/build-glyphs.mjs"`), `src/core/glyphs/roboto-900.json`, `src/core/glyphs/OFL.txt`, `src/core/glyphs.ts`, `src/core/glyphs.test.ts`.
+
+Build script (dev only): parse `@fontsource/roboto/files/roboto-latin-900-normal.woff` and `…-cyrillic-900-normal.woff` with `opentype.js` (if opentype.js cannot read WOFF, unwrap WOFF 1.0 to SFNT with `node:zlib` in the script). For every character of
+`ABCDEFGHIJKLMNOPQRSTUVWXYZ`, `АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ`, `0123456789`, `!?.,:;-+&'"*#%@()` and space, take the glyph from the first font that has it and write:
+
+```ts
+export interface GlyphContour { v: [number, number][]; i: [number, number][]; o: [number, number][] } // closed, y down, v absolute, i/o relative (Lottie)
+export interface GlyphSet {
+  unitsPerEm: number
+  capHeight: number                                              // font units
+  glyphs: Record<string, { advance: number; contours: GlyphContour[] }> // space: no contours
+  kerning: Record<string, number>                                // 'AV' → units; non-zero pairs within the set only
+}
+```
+- Quadratic segments → exact cubic elevation; lines → zero handles; the duplicate closing vertex is dropped. Coordinates rounded to integers. Copy the font licence to `OFL.txt`.
+
+`glyphs.ts`:
+```ts
+export interface Box { x0: number; y0: number; x1: number; y1: number }
+export interface PlacedGlyph { char: string; contours: GlyphContour[]; bounds: Box | null } // box coordinates; bounds null for space
+export function layoutLine(set: GlyphSet, text: string, box: Box): PlacedGlyph[]           // throws on a char missing from set
+```
+- Pen positions use advances + kerning. Scale `s = min(boxHeight / capHeight, boxWidth / inkWidth)` where inkWidth is the horizontal ink extent of the line in font units. The block (ink width × cap height) is centred in the box: baseline `y = box.y1 − (boxHeight − capHeight·s) / 2`, ink extent centred on `(x0 + x1) / 2`. y is already down in the data.
+
+Tests (import the JSON directly): every listed character exists and all but space have ≥ 1 contour; `O` has 2 contours with opposite signed area; `layoutLine(set, 'COOL', {0,0,300,100})` — the ink of `L` spans y 0…100 (±0.5), the line's ink lies within x 0…300 (±0.5) and is centred (±0.5); a long line in a narrow box fits its width; a kerned pair is narrower than its advances sum when the font kerns it; the set is not mutated.
+
+Done when: `npm run glyphs` regenerates the identical JSON; tests pass; gate passes.
+
+### Task 9e: Inscription replacement
+Files: `src/core/homography.ts`, `src/core/homography.test.ts`, `src/core/text.ts`, `src/core/text.test.ts`, `src/core/families.ts`, `src/core/families.test.ts`.
+
+```ts
+export type Mat3 = [number, number, number, number, number, number, number, number, number]
+export function fitHomography(src: [number, number][], dst: [number, number][]): Mat3 // least-squares DLT with Hartley normalisation; throws on < 4 points or a degenerate set
+export function applyHomography(h: Mat3, p: [number, number]): [number, number]       // throws when w ≤ 0
+
+export function readText(anim: Lottie, spec: TextSpec): string
+export type TextCheck = { ok: true; text: string } | { ok: false; error: string }
+export function validateText(input: string, spec: TextSpec, set: GlyphSet): TextCheck
+export function replaceText(anim: Lottie, spec: TextSpec, text: string, set: GlyphSet): { anim: Lottie; siteOrigin: number[] }
+
+export function remapFamilies(families: ColorFamily[], siteOrigin: number[]): ColorFamily[] // in families.ts
+```
+
+- `validateText`: upper-case, trim, inner whitespace runs → one space. Errors (exact): «Пустая надпись»; «Не больше ${maxLength} символов»; «Нет символа «${char}» в шрифте».
+- `readText`: if every `gr` item of the container is named `txt:<char>`, join the chars in reading order (reverse of `it`); otherwise `spec.original`.
+- `replaceText` (validates first, throws `Error(error)` on failure; works on a `structuredClone`; the container must resolve to exactly one group):
+  1. Letter groups = container `gr` items with ≥ 2 `gr` children (face = first, shadow = second); `txt: ` space groups are skipped. Template = the first letter group. A point in a face/shadow group maps to container coordinates as `local + tr.p − tr.a` of that group.
+  2. Fit `H_k` (face kf 0 → face kf k) and `G_k` (face kf 0 → shadow kf k) on all letters' vertices and absolute handles (`v`, `v+i`, `v+o`). Face and shadow paths must have equal vertex counts, else throw.
+  3. `layoutLine(set, text, spec.box)`.
+  4. For each character build a group `nm: 'txt:<char>'` copied from the template letter group's fields except `it`: `[face, shadow, tr]`.
+     - face/shadow: the template group's fields; `it` = one `sh` per contour, then clones of the template group's non-`sh`, non-`tr` items (the `fl`, so colours carry over), then its `tr` with `p = a = [0,0]`.
+     - Each `sh` gets `ks: { a: 1, k }`, where `k` copies every template keyframe (from the template's first face `sh`) with `s = [shape_k]` (and `e` if the template has `e`). `shape_k = { c: true, v, i, o }` maps vertices and absolute handles through `H_k`/`G_k`, turns handles back to offsets, and rounds to 1 decimal.
+     - letter `tr`: clone of the template letter's `tr`. `p = a =` centre of the face ∪ shadow vertex bounds at kf 0. The `s` keyframes are shifted so the j-th non-space letter starts at `pop.first + j·pop.step`.
+     - Space: `{ ty: 'gr', nm: 'txt: ', it: [template letter tr with p = a = [0,0] and static s 100] }`.
+  5. Container `it` = new groups in reverse reading order, then the container's non-letter items (its `tr`) unchanged.
+  6. `siteOrigin[i]` (length = new site count) = index of the input site that new site i comes from. Sites before the container keep their index. Sites after it shift by the size change. A new letter's face/shadow sites map position-wise onto the template letter's face/shadow sites. Use `sitesWithin` for the container and template ranges.
+- `remapFamilies`: for each family, new sites = `{ i | siteOrigin[i] ∈ family.sites }` ascending; `keySite` = the first new site whose origin is the old key site, else the family's first new site; `id`, `name`, `neutral` kept; a family left without sites is dropped.
+
+Tests:
+- Homography: a known H recovered from 20 points (reprojection < 1e-6); < 4 points and collinear points throw; `w ≤ 0` throws.
+- A synthetic animation built in the test with known `H_k`/`G_k` (3 keyframes, 2 letters, red faces, blue shadows), plus a fill before and a fill after the container:
+  - `replaceText(·, 'AB')` → groups `txt:B`, `txt:A` in `it` order and `readText` = `'AB'`.
+  - Keyframe times and easing equal the template's; fitting on the result recovers each `H_k`/`G_k` with < 0.05 px reprojection on the original points.
+  - Fills copied; pop starts `first`, `first + step`; input not mutated.
+  - `siteOrigin` maps the outside fills to themselves (same hex at the mapped index).
+  - `remapFamilies(findFamilies(input), siteOrigin)` covers every new site exactly once and keeps ids and names.
+- Replacing twice (`'AB'` then `'XYZ'`) equals replacing once with `'XYZ'` (coordinates ±0.05).
+- `'A B'` → 3 groups, the middle one is `txt: ` with no paths; `readText` = `'A B'`; pops counted over letters only.
+- `validateText`: `'привет'` → `'ПРИВЕТ'`; `'  a   b '` → `'A B'`; `''` and `'   '` → «Пустая надпись»; `'ABCDEFG'` → «Не больше 6 символов»; `'中'` → «Нет символа «中» в шрифте».
+- Cool sample (skip when absent):
+  - `readText` = `'COOL'`, and the fit on the original letters is < 0.2 px.
+  - After `replaceText('ПРИВЕТ')`, `matchProfile` still matches and `readText` = `'ПРИВЕТ'`.
+  - `Надпись` key is still `#ffffff`, and the `Коробка` sites include the new shadows (#5f7b93).
+  - The last pop ends ≤ op − 1, and `telegramChecks` all pass.
+  - **Budget:** `writeTgs` size ≤ 65536 bytes for `'COOL'`, `'ЖЖЖЖЖЖ'`, `'ШЩЖФЫЮ'`, `'WWWWWW'`; log each size. If the budget fails, report BLOCKED with the sizes; do not change limits or the glyph data on your own.
+
+Done when: tests pass; gate passes.
+
+### Task 9f: Parts panel
+Files: `src/ui/Parts.tsx` (new), `src/App.tsx`.
+
+- App history becomes `useHistory<Doc>` with `interface Doc { anim: Lottie; families: ColorFamily[] }`.
+  - On load: `families = findFamilies(anim)`, `profile = matchProfile(anim)?.profile ?? null` (before any state change), then `reset({ anim, families })`.
+  - A colour commit `set({ anim: next, families: present.families })`.
+  - Preview, checks and export read `present.anim`.
+- `parts = useMemo(() => profile && present ? resolveParts(present.anim, profile) : null, …)`.
+- Inspector order: `<Parts>` (only when `parts` is non-empty) → `<Palette>` → `<Checks>`.
+- `Parts` props `{ anim, parts, session }`: section titled «Части» (same heading style as «Палитра»), one `li` per part with the same top row as a family card.
+  - Key swatch: `PopoverTrigger` + `PickerPopup`, target `part:${id}`, `apply = (c, p) => recolorFamily(c, part, p)`, `data-part-key`, aria-label `«${name}»: ${key} — изменить`.
+  - Name, plus a shade strip from `viewFamily(readColorSites(anim), part)`.
+  - No shade grid.
+
+Done when: gate passes; in the browser each sample shows its parts (table order) above the palette; Eye: recolouring Зрачок leaves Радужка unchanged (and vice versa); Esc/Enter/Undo/Redo work; `minimal.json` shows no «Части».
+
+### Task 9g: Inscription field
+Files: `src/ui/Parts.tsx`, `src/App.tsx`.
+
+- When a shown part has `text`, load the glyph data lazily with `import('@/core/glyphs/roboto-900.json')` (its own chunk). While loading, the field is disabled with placeholder «Загрузка шрифта…». On failure show «Не удалось загрузить шрифт».
+- Under the Надпись card's top row: a labelled text input «Текст».
+  - The draft equals `readText(anim, spec)` and re-syncs whenever `anim` changes.
+  - Enter or blur: `validateText`.
+    - On error: show the message under the field (`aria-describedby`, `aria-invalid`); nothing is committed.
+    - If the normalised text equals the current text: only normalise the draft.
+    - Otherwise: `replaceText` → `onTextCommit(next, siteOrigin)`.
+  - Esc restores the draft and clears the error.
+- App `onTextCommit`: `set({ anim: next, families: remapFamilies(present.families, siteOrigin) })`.
+
+Done when: gate passes; final acceptance steps 5–7 pass; `bash scripts/check.sh <exported file>` passes.
+
+## Final acceptance (Iteration 3)
+
+Orchestrator, dev server `tgs-dev` (port 5173):
+1. Each sample shows its parts in table order, then the palette, then the checks; no console errors.
+2. Eye: recolouring Зрачок leaves the iris unchanged and vice versa; Белок and Веки are independent; Undo/Redo work.
+3. Heart: «Сердце» recolours all the red; the highlights stay white.
+4. Cool: Коробка (with letter shadows), Огонь (every instance + reflection), Искры, Блики each recolour on their own.
+5. Надпись: type «привет», press Enter → «ПРИВЕТ». The preview shows the letters turning with the box and popping in turn. ⌘Z restores «COOL» and the previous palette families; ⇧⌘Z brings «ПРИВЕТ» back.
+6. «中», an empty field or 7 characters → message, file unchanged.
+7. Export after a text change + recolour: size check green; `bash scripts/check.sh <file>` passes; re-opening shows the same text and parts.
+8. `minimal.json`: no «Части», palette works as before.
+9. `npm run build` + `npx vite preview`: works; the glyph JSON loads as a separate chunk.
+10. User: compare with Telegram, send an exported sticker.
