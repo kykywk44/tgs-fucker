@@ -51,7 +51,11 @@ interface ColorSessionOptions {
 }
 
 export function useColorSession({ anim, onPreview, onCommit, rootRef }: ColorSessionOptions): ColorSession {
-  const [openId, setOpenId] = useState<string | null>(null)
+  // The open popover, with the animation it was opened against: a different
+  // animation (a new file loaded under an open popover) shows nothing open at
+  // once, before the effect below has dropped the stale edit.
+  const [opened, setOpened] = useState<{ id: string; anim: Lottie | null } | null>(null)
+  const openId = opened !== null && opened.anim === anim ? opened.id : null
   // The same editing session for code that runs outside a render: the frame
   // callback, the anim-change effect, unmount.
   const session = useRef<Editing | null>(null)
@@ -99,7 +103,7 @@ export function useColorSession({ anim, onPreview, onCommit, rootRef }: ColorSes
       if (!current) return
       session.current = null
       cancelFrame()
-      setOpenId(null)
+      setOpened(null)
       const { anim: committed, onPreview: preview, onCommit: commitNext } = latest.current
       const { target, picked } = current
       if (commit && picked !== target.from && committed !== null) {
@@ -116,7 +120,7 @@ export function useColorSession({ anim, onPreview, onCommit, rootRef }: ColorSes
       if (open) {
         finish(true)
         session.current = { target, picked: target.from }
-        setOpenId(target.id)
+        setOpened({ id: target.id, anim: latest.current.anim })
       } else {
         // Esc cancels; an outside click, a second click on the swatch or focus
         // leaving the popover commit.

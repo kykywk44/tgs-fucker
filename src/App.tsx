@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { telegramChecks, type Check } from '@/core/checks'
 import { findFamilies, type ColorFamily } from '@/core/families'
+import { matchProfile, resolveParts, type StickerProfile } from '@/core/parts'
 import { readTgs, writeTgs, type Lottie } from '@/core/tgs'
 import { Preview } from '@/preview/Preview'
 import { Checks } from '@/ui/Checks'
 import { DropZone, useFilePicker } from '@/ui/DropZone'
 import { useColorSession } from '@/ui/colorSession'
 import { Palette } from '@/ui/Palette'
+import { Parts } from '@/ui/Parts'
 import { Toolbar } from '@/ui/Toolbar'
 import { useHistory, useUndoShortcuts } from '@/ui/useHistory'
 
@@ -56,15 +58,22 @@ function download(bytes: Uint8Array, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+// One history step: the animation and the colour families it was opened with. The
+// families are fixed per file (D14), so every edit carries them over unchanged.
+interface Doc {
+  anim: Lottie
+  families: ColorFamily[]
+}
+
 function App() {
-  const history = useHistory<Lottie>()
+  const history = useHistory<Doc>()
   const { present, set, reset } = history
   const [fileName, setFileName] = useState<string | null>(null)
   // Bumped on every successful load: keys the preview so a new file restarts at frame 0,
   // while edits of the same file keep the same preview and swap the animation in place.
   const [fileSeq, setFileSeq] = useState(0)
-  // The colour families of the opened file (D14): computed once per file, fixed until the next.
-  const [families, setFamilies] = useState<ColorFamily[]>([])
+  // The known sticker profile of the opened file, or null for an unknown one: fixed until the next.
+  const [profile, setProfile] = useState<StickerProfile | null>(null)
   const [error, setError] = useState<string | null>(null)
   // The live preview while a swatch popover is open; null when nothing is being picked.
   const [previewAnim, setPreviewAnim] = useState<Lottie | null>(null)
@@ -81,9 +90,11 @@ function App() {
         const anim: unknown = await readTgs(new Uint8Array(await file.arrayBuffer()))
         assertLottie(anim)
         if (seq !== loadSeq.current) return
-        const found = findFamilies(anim) // before any state changes, so a failure leaves the old file intact
-        reset(anim)
-        setFamilies(found)
+        // Both before any state changes, so a failure leaves the old file intact.
+        const families = findFamilies(anim)
+        const matched = matchProfile(anim)
+        reset({ anim, families })
+        setProfile(matched?.profile ?? null)
         setFileName(file.name)
         setFileSeq((n) => n + 1)
         setError(null)
@@ -101,10 +112,11 @@ function App() {
   // The banner is not dismissible, so a successful edit clears a stale error.
   const handleCommit = useCallback(
     (next: Lottie) => {
+      if (!present) return
       setError(null)
-      set(next)
+      set({ anim: next, families: present.families })
     },
-    [set],
+    [set, present],
   )
 
   // Checks follow the committed animation, never the preview. The size check needs the real
@@ -112,9 +124,9 @@ function App() {
   useEffect(() => {
     if (!present) return
     let stale = false
-    writeTgs(present).then(
+    writeTgs(present.anim).then(
       (bytes) => {
-        if (!stale) setChecks(telegramChecks(present, bytes.length))
+        if (!stale) setChecks(telegramChecks(present.anim, bytes.length))
       },
       (err: unknown) => {
         if (!stale) setError(`Не удалось проверить файл: ${errorMessage(err)}`)
@@ -125,10 +137,17 @@ function App() {
     }
   }, [present])
 
+  // The parts of the opened sticker as they are now (the key colour decides `neutral`).
+  const presentAnim = present?.anim ?? null
+  const parts = useMemo(
+    () => (profile && presentAnim ? resolveParts(presentAnim, profile) : null),
+    [profile, presentAnim],
+  )
+
   // The one colour-editing session of the inspector; its refocus selectors are looked up inside it.
   const inspectorRef = useRef<HTMLElement>(null)
   const colorSession = useColorSession({
-    anim: present,
+    anim: presentAnim,
     onPreview: setPreviewAnim,
     onCommit: handleCommit,
     rootRef: inspectorRef,
@@ -139,16 +158,16 @@ function App() {
   const handleExport = useCallback(async () => {
     if (!present || fileName === null || reasons.length > 0) return
     try {
-      const bytes = await writeTgs(present)
+      const bytes = await writeTgs(present.anim)
       // `checks` can lag one gzip behind a fresh edit; the bytes in hand are the truth.
-      if (blockedReasons(telegramChecks(present, bytes.length)).length > 0) return
+      if (blockedReasons(telegramChecks(present.anim, bytes.length)).length > 0) return
       download(bytes, exportName(fileName))
     } catch (err) {
       setError(`Не удалось экспортировать файл: ${errorMessage(err)}`)
     }
   }, [present, fileName, reasons])
 
-  const shown = previewAnim ?? present
+  const shown = previewAnim ?? presentAnim
   const json = useMemo(() => (shown ? JSON.stringify(shown) : ''), [shown])
 
   return (
@@ -182,7 +201,15 @@ function App() {
               aria-label="Инспектор"
               className="flex shrink-0 flex-col gap-6 border-t border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l"
             >
-              <Palette key={fileSeq} anim={present} families={families} session={colorSession} />
+              {parts && parts.length > 0 && (
+                <Parts key={`parts-${fileSeq}`} anim={present.anim} parts={parts} session={colorSession} />
+              )}
+              <Palette
+                key={`palette-${fileSeq}`}
+                anim={present.anim}
+                families={present.families}
+                session={colorSession}
+              />
               <Checks checks={checks} />
             </aside>
           </div>
