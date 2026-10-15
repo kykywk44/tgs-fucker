@@ -87,17 +87,30 @@ function visitGradient(gradient: Json, ordinal: number, visit: Visit): void {
   })
 }
 
+// Called around the descent into each array or object the walk enters (the
+// root included): `enter` before the node's own colors and children are
+// visited, `leave` after its last child.
+interface Scope {
+  enter: (node: object) => void
+  leave: (node: object) => void
+}
+
 // Pre-order walk, object keys in insertion order. Gradients are numbered in
 // the order their gf/gs nodes are reached; a gf/gs without a numeric `p` is
-// not a gradient and takes no number.
-function walk(root: unknown, visit: Visit): void {
+// not a gradient and takes no number. A color is visited while the walk is at
+// its fl/st/gf/gs node, so that node (not its `c` / `g` property) is the
+// innermost node `scope` sees around it.
+function walk(root: unknown, visit: Visit, scope?: Scope): void {
   let gradients = 0
   const visitNode = (node: unknown): void => {
     if (Array.isArray(node)) {
+      scope?.enter(node)
       for (const item of node) visitNode(item)
+      scope?.leave(node)
       return
     }
     if (!isObject(node)) return
+    scope?.enter(node)
     if (node.ty === 'fl' || node.ty === 'st') {
       visitColor(node.c, visit)
     } else if ((node.ty === 'gf' || node.ty === 'gs') && isObject(node.g) && typeof node.g.p === 'number') {
@@ -106,6 +119,7 @@ function walk(root: unknown, visit: Visit): void {
     for (const value of Object.values(node)) {
       if (typeof value === 'object' && value !== null) visitNode(value)
     }
+    scope?.leave(node)
   }
   visitNode(root)
 }
@@ -117,6 +131,35 @@ export function readColorSites(anim: Lottie): ColorSite[] {
     sites.push({ index: sites.length, hex: hexAt(values, at), gradient })
   })
   return sites
+}
+
+// Indices (ascending, the readColorSites walk order, each at most once) of the
+// color sites lying inside one of `nodes`. Nodes are matched by object
+// identity against the objects and arrays of `anim` itself: a layer, a shape
+// group, a fill, an asset, `anim.layers`, `anim` ... Nothing is cloned or
+// changed. A site belongs to its fl/st/gf/gs node, so a finer node (a `c` or
+// `g` property, a keyframe) matches nothing. Layers referencing an asset by
+// `refId` hold no sites of their own; the asset's sites are listed once, when
+// the asset (or something containing it) is in `nodes`.
+export function sitesWithin(anim: Lottie, nodes: ReadonlySet<object>): number[] {
+  const indices: number[] = []
+  if (nodes.size === 0) return indices
+  // Nesting depth inside listed nodes: a node and its descendant both listed
+  // still make one stretch of "inside", so a site is recorded only once.
+  let inside = 0
+  let index = 0
+  walk(
+    anim,
+    () => {
+      if (inside > 0) indices.push(index)
+      index++
+    },
+    {
+      enter: (node) => { if (nodes.has(node)) inside++ },
+      leave: (node) => { if (nodes.has(node)) inside-- },
+    },
+  )
+  return indices
 }
 
 // Returns a deep copy of `anim` where each site is recoloured to `fn(site)`.

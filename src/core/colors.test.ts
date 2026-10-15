@@ -10,6 +10,7 @@ import {
   mapColorSites,
   readColorSites,
   replaceColor,
+  sitesWithin,
   type ColorEntry,
 } from './colors'
 import { readTgs, type Lottie } from './tgs'
@@ -466,4 +467,113 @@ describe('colour sites on samples', () => {
       expect(after.map((site) => site.gradient)).toEqual(sites.map((site) => site.gradient))
     })
   }
+  for (const file of files) {
+    it(`${basename(file)}: sitesWithin of the root is every site, of each top-level layer a subset in order`, async () => {
+      const anim = await readTgs(new Uint8Array(readFileSync(file)))
+      const all = readColorSites(anim).map((site) => site.index)
+      expect(sitesWithin(anim, new Set([anim]))).toEqual(all)
+      const perLayer = (anim.layers as object[]).map((layer) => sitesWithin(anim, new Set([layer])))
+      for (const indices of perLayer) expect(indices).toEqual([...new Set(indices)].sort((a, b) => a - b))
+      const assets = ((anim.assets ?? []) as object[]).map((asset) => sitesWithin(anim, new Set([asset])))
+      // Layers and assets are disjoint subtrees, so together they cover every site exactly once.
+      expect([...perLayer.flat(), ...assets.flat()].sort((a, b) => a - b)).toEqual(all)
+    })
+  }
+})
+
+describe('sitesWithin', () => {
+  // Walk-order site indices of the fixture (see readColorSites above):
+  //   0-1   precomp asset comp_0: fill, stroke
+  //   2     static layer, inner group: fill
+  //   3     static layer, outer group: stroke (outside the inner group)
+  //   4-7   animated layer: fill keyframes s/e, s/e
+  //   8-9   animated layer: stroke keyframes
+  //   10-12 gradient layer: three stops
+  const ASSET = ['assets', 0]
+  const PRECOMP_LAYER = ['assets', 0, 'layers', 0]
+  const STATIC_LAYER = ['layers', 0]
+  const OUTER_GROUP = ['layers', 0, 'shapes', 0]
+  const INNER_GROUP = ['layers', 0, 'shapes', 0, 'it', 1]
+  const ANIM_LAYER = ['layers', 1]
+  const GRADIENT_LAYER = ['layers', 2]
+
+  const node = (anim: Lottie, path: Path): object => getAt(anim, path) as object
+  const within = (...paths: Path[]): number[] =>
+    sitesWithin(fixture, new Set(paths.map((path) => node(fixture, path))))
+  const range = (from: number, to: number): number[] =>
+    Array.from({ length: to - from + 1 }, (_, i) => from + i)
+
+  it('returns [] for an empty set', () => {
+    expect(sitesWithin(fixture, new Set())).toEqual([])
+  })
+
+  it('returns every site, 0..12, for the animation itself', () => {
+    expect(sitesWithin(fixture, new Set([fixture]))).toEqual(range(0, 12))
+    expect(sitesWithin(fixture, new Set([fixture]))).toEqual(readColorSites(fixture).map((site) => site.index))
+  })
+
+  it('returns [] for a node that is not part of the animation', () => {
+    expect(sitesWithin(fixture, new Set([{}, structuredClone(fixture.layers[0]) as object]))).toEqual([])
+  })
+
+  it('returns exactly the precomp asset sites for the asset and for its layer', () => {
+    expect(within(ASSET)).toEqual([0, 1])
+    expect(within(PRECOMP_LAYER)).toEqual([0, 1])
+  })
+
+  it('returns only the sites of a nested group, a layer, or a single shape', () => {
+    expect(within(INNER_GROUP)).toEqual([2])
+    expect(within(STATIC_LAYER)).toEqual([2, 3])
+    expect(within(ANIM_LAYER)).toEqual([4, 5, 6, 7, 8, 9])
+    expect(within(GRADIENT_LAYER)).toEqual([10, 11, 12])
+    expect(within([...OUTER_GROUP, 'it', 2])).toEqual([3]) // the stroke shape itself
+    expect(within([...GRADIENT_LAYER, 'shapes', 0, 'it', 1])).toEqual([10, 11, 12]) // the gf shape
+  })
+
+  it('includes the inner group sites in the outer group', () => {
+    expect(within(OUTER_GROUP)).toEqual([2, 3])
+  })
+
+  it('unions several nodes in ascending order, whatever order the set lists them in', () => {
+    expect(within(GRADIENT_LAYER, INNER_GROUP, ASSET)).toEqual([0, 1, 2, 10, 11, 12])
+  })
+
+  it('does not repeat a site when a node and its descendant are both listed', () => {
+    expect(within(OUTER_GROUP, INNER_GROUP)).toEqual([2, 3])
+    expect(within(STATIC_LAYER, OUTER_GROUP, INNER_GROUP)).toEqual([2, 3])
+    expect(sitesWithin(fixture, new Set([fixture, node(fixture, INNER_GROUP), node(fixture, ASSET)]))).toEqual(
+      range(0, 12),
+    )
+  })
+
+  it('accepts a containing array as a node', () => {
+    expect(sitesWithin(fixture, new Set([fixture.layers]))).toEqual(range(2, 12))
+    expect(sitesWithin(fixture, new Set([fixture.assets as object]))).toEqual([0, 1])
+  })
+
+  it('lists the asset sites once when two precomp layers reference one asset', () => {
+    const anim = structuredClone(fixture)
+    // Precomp layers (ty 0) reference the asset by refId and carry no colours of their own.
+    const refLayer = (ind: number): Record<string, unknown> => ({
+      ddd: 0, ind, ty: 0, nm: `precomp ref ${ind}`, refId: 'comp_0', sr: 1, ip: 0, op: 60, st: 0, bm: 0,
+    })
+    const refs = [refLayer(10), refLayer(11)]
+    anim.layers.push(...refs)
+
+    const asset = (anim.assets as object[])[0]
+    // The walk does not follow refId, so there are still 13 sites.
+    expect(readColorSites(anim)).toHaveLength(13)
+    expect(sitesWithin(anim, new Set([asset]))).toEqual([0, 1])
+    expect(sitesWithin(anim, new Set([asset, refs[0], refs[1]]))).toEqual([0, 1])
+    expect(sitesWithin(anim, new Set([refs[0], refs[1]]))).toEqual([])
+    expect(sitesWithin(anim, new Set([anim]))).toEqual(range(0, 12))
+  })
+
+  it('does not mutate its inputs', () => {
+    const snapshot = structuredClone(fixture)
+    const nodes = new Set([node(fixture, OUTER_GROUP), node(fixture, ASSET)])
+    sitesWithin(fixture, nodes)
+    expect(fixture).toEqual(snapshot)
+    expect(nodes.size).toBe(2)
+  })
 })
