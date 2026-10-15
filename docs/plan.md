@@ -729,6 +729,7 @@ export interface TextSpec {
   box: { x0: number; y0: number; x1: number; y1: number } // cap box of the original letters at path kf 0, container coords
   pop: { first: number; step: number }                  // first letter's pop start frame; frames between starts
   maxLength: number
+  motion: { face: Mat3[]; shadow: Mat3[] }              // per path keyframe: face kf0 → face kf k / → shadow kf k (measured once from the original letters; see final-review fix)
 }
 export interface PartSpec { id: string; name: string; select: Selector[]; key: { select: Selector; nth?: number }; text?: TextSpec }
 export interface StickerProfile { id: string; match: { nm: string }; parts: PartSpec[] }
@@ -816,7 +817,7 @@ export function remapFamilies(families: ColorFamily[], siteOrigin: number[]): Co
 - `readText`: if every `gr` item of the container is named `txt:<char>`, join the chars in reading order (reverse of `it`); otherwise `spec.original`.
 - `replaceText` (validates first, throws `Error(error)` on failure; works on a `structuredClone`; the container must resolve to exactly one group):
   1. Letter groups = container `gr` items with ≥ 2 `gr` children (face = first, shadow = second); `txt: ` space groups are skipped. Template = the first letter group. A point in a face/shadow group maps to container coordinates as `local + tr.p − tr.a` of that group.
-  2. Fit `H_k` (face kf 0 → face kf k) and `G_k` (face kf 0 → shadow kf k) on all letters' vertices and absolute handles (`v`, `v+i`, `v+o`). Face and shadow paths must have equal vertex counts, else throw.
+  2. Fit `H_k` (face kf 0 → face kf k) and `G_k` (face kf 0 → shadow kf k) on all letters' vertices and absolute handles (`v`, `v+i`, `v+o`). Face and shadow paths must have equal vertex counts, else throw. **Amended by the final-review fix:** the matrices come from `spec.motion` (measured once from the original letters and stored in the profile), never from the current letters, so thin or user-made glyphs cannot degrade or break the motion.
   3. `layoutLine(set, text, spec.box)`.
   4. For each character build a group `nm: 'txt:<char>'` copied from the template letter group's fields except `it`: `[face, shadow, tr]`.
      - face/shadow: the template group's fields; `it` = one `sh` per contour, then clones of the template group's non-`sh`, non-`tr` items (the `fl`, so colours carry over), then its `tr` with `p = a = [0,0]`.
