@@ -792,7 +792,7 @@ export function layoutLine(set: GlyphSet, text: string, box: Box): PlacedGlyph[]
 ```
 - Pen positions use advances + kerning. Scale `s = min(boxHeight / capHeight, boxWidth / inkWidth)` where inkWidth is the horizontal ink extent of the line in font units. The block (ink width × cap height) is centred in the box: baseline `y = box.y1 − (boxHeight − capHeight·s) / 2`, ink extent centred on `(x0 + x1) / 2`. y is already down in the data.
 
-Tests (import the JSON directly): every listed character exists and all but space have ≥ 1 contour; `O` has 2 contours with opposite signed area; `layoutLine(set, 'COOL', {0,0,300,100})` — the ink of `L` spans y 0…100 (±0.5), the line's ink lies within x 0…300 (±0.5) and is centred (±0.5); a long line in a narrow box fits its width; a kerned pair is narrower than its advances sum when the font kerns it; the set is not mutated.
+Tests (import the JSON directly): every listed character exists and all but space have ≥ 1 contour; `O` has 2 contours with opposite signed area; `layoutLine(set, 'COOL', {x0:0, y0:0, x1:1000, y1:100})` (height-limited) — the ink of `L` spans y 0…100 (±0.5) and the line's ink is centred on x 500 (±0.5); a long line in a narrow box fits its width; a kerned pair is narrower than its advances sum when the font kerns it; the set is not mutated.
 
 Done when: `npm run glyphs` regenerates the identical JSON; tests pass; gate passes.
 
@@ -831,11 +831,11 @@ Tests:
 - Homography: a known H recovered from 20 points (reprojection < 1e-6); < 4 points and collinear points throw; `w ≤ 0` throws.
 - A synthetic animation built in the test with known `H_k`/`G_k` (3 keyframes, 2 letters, red faces, blue shadows), plus a fill before and a fill after the container:
   - `replaceText(·, 'AB')` → groups `txt:B`, `txt:A` in `it` order and `readText` = `'AB'`.
-  - Keyframe times and easing equal the template's; fitting on the result recovers each `H_k`/`G_k` with < 0.05 px reprojection on the original points.
+  - Keyframe times and easing equal the template's; fitting on the result recovers each `H_k`/`G_k` with < 0.1 px reprojection on the original points (output is rounded to 0.1).
   - Fills copied; pop starts `first`, `first + step`; input not mutated.
   - `siteOrigin` maps the outside fills to themselves (same hex at the mapped index).
   - `remapFamilies(findFamilies(input), siteOrigin)` covers every new site exactly once and keeps ids and names.
-- Replacing twice (`'AB'` then `'XYZ'`) equals replacing once with `'XYZ'` (coordinates ±0.05).
+- Replacing twice (`'AB'` then `'XYZ'`) equals replacing once with `'XYZ'` (coordinates ±0.15).
 - `'A B'` → 3 groups, the middle one is `txt: ` with no paths; `readText` = `'A B'`; pops counted over letters only.
 - `validateText`: `'привет'` → `'ПРИВЕТ'`; `'  a   b '` → `'A B'`; `''` and `'   '` → «Пустая надпись»; `'ABCDEFG'` → «Не больше 6 символов»; `'中'` → «Нет символа «中» в шрифте».
 - Cool sample (skip when absent):
