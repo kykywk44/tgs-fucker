@@ -18,6 +18,10 @@ export interface ColorFamily {
   keySite: number // site of the family's key colour (its first occurrence)
 }
 
+// What viewFamily and recolorFamily take: a colour family, or a sticker part
+// (which has the same three fields).
+export type FamilyTarget = Pick<ColorFamily, 'sites' | 'keySite' | 'neutral'>
+
 export interface FamilyView {
   key: string // current hex of the key site
   shades: { hex: string; count: number }[] // by OKLCH l ascending, then hex
@@ -60,7 +64,8 @@ function compareHex(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
-function isNeutral(color: Oklch): boolean {
+// Whether `color` counts as a grey (white, grey or black) rather than a hue.
+export function isNeutral(color: Oklch): boolean {
   return color.c < NEUTRAL_ABS_CHROMA || color.c < NEUTRAL_REL_CHROMA * maxChroma(color.l, color.h)
 }
 
@@ -226,7 +231,7 @@ export function findFamilies(anim: Lottie): ColorFamily[] {
 
 // The key and shades of `family` as they are now. `sites` must come from
 // readColorSites of the current animation.
-export function viewFamily(sites: ColorSite[], family: ColorFamily): FamilyView {
+export function viewFamily(sites: ColorSite[], family: FamilyTarget): FamilyView {
   const hexAt = new Map(sites.map((site) => [site.index, site.hex]))
   const counts = new Map<string, number>()
   for (const index of family.sites) {
@@ -251,7 +256,7 @@ function mapLightness(l: number, key: number, target: number): number {
 // other shades keep their relation to it. Chromatic families rotate hue, scale
 // chroma and map lightness; neutral families (and families whose key is now
 // grey) are tinted with the target's hue and chroma.
-export function recolorFamily(anim: Lottie, family: ColorFamily, target: string): Lottie {
+export function recolorFamily(anim: Lottie, family: FamilyTarget, target: string): Lottie {
   const targetHex = target.toLowerCase()
   const sites = readColorSites(anim)
   const keyHex = sites.find((site) => site.index === family.keySite)?.hex
