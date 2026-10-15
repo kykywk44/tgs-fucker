@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { telegramChecks, type Check } from '@/core/checks'
-import { findFamilies, type ColorFamily } from '@/core/families'
+import { findFamilies, remapFamilies, type ColorFamily } from '@/core/families'
 import { matchProfile, resolveParts, type StickerProfile } from '@/core/parts'
 import { readTgs, writeTgs, type Lottie } from '@/core/tgs'
 import { Preview } from '@/preview/Preview'
@@ -119,6 +119,17 @@ function App() {
     [set, present],
   )
 
+  // A new inscription: the letters (and so the colour sites) change, so the families the file
+  // was opened with are carried over to the new sites.
+  const handleTextCommit = useCallback(
+    (next: Lottie, siteOrigin: number[]) => {
+      if (!present) return
+      setError(null)
+      set({ anim: next, families: remapFamilies(present.families, siteOrigin) })
+    },
+    [set, present],
+  )
+
   // Checks follow the committed animation, never the preview. The size check needs the real
   // exported bytes, so every change gzips again; a result for an older animation is dropped.
   useEffect(() => {
@@ -202,7 +213,13 @@ function App() {
               className="flex shrink-0 flex-col gap-6 border-t border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l"
             >
               {parts && parts.length > 0 && (
-                <Parts key={`parts-${fileSeq}`} anim={present.anim} parts={parts} session={colorSession} />
+                <Parts
+                  key={`parts-${fileSeq}`}
+                  anim={present.anim}
+                  parts={parts}
+                  session={colorSession}
+                  onTextCommit={handleTextCommit}
+                />
               )}
               <Palette
                 key={`palette-${fileSeq}`}
