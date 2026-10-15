@@ -10,6 +10,7 @@ import {
   findFamilies,
   recolorFamily,
   recolorShade,
+  remapFamilies,
   viewFamily,
   type ColorFamily,
 } from './families'
@@ -461,4 +462,45 @@ describe('families on samples', () => {
       })
     }
   }
+})
+
+describe('remapFamilies', () => {
+  const families: ColorFamily[] = [
+    { id: 0, name: 'Красные', neutral: false, sites: [0, 2], keySite: 2 },
+    { id: 1, name: 'Белые', neutral: true, sites: [1], keySite: 1 },
+    { id: 2, name: 'Синие', neutral: false, sites: [3], keySite: 3 },
+    { id: 3, name: 'Зелёные', neutral: false, sites: [4, 5], keySite: 4 },
+  ]
+
+  it('takes every new site whose origin is in the family, ascending', () => {
+    // new 0 <- old 0, new 1..3 <- old 2, new 4 <- old 1, new 5 <- old 5
+    const remapped = remapFamilies(families, [0, 2, 2, 2, 1, 5])
+    expect(remapped.map((family) => family.sites)).toEqual([[0, 1, 2, 3], [4], [5]])
+  })
+
+  it('keeps id, name and neutral; drops a family left without sites', () => {
+    const remapped = remapFamilies(families, [0, 2, 2, 2, 1, 5])
+    expect(remapped.map(({ id, name, neutral }) => [id, name, neutral])).toEqual([
+      [0, 'Красные', false],
+      [1, 'Белые', true],
+      [3, 'Зелёные', false],
+    ])
+  })
+
+  it('the key is the first new site coming from the old key, else the first new site', () => {
+    const remapped = remapFamilies(families, [0, 2, 2, 2, 1, 5])
+    expect(remapped.map((family) => family.keySite)).toEqual([1, 4, 5])
+  })
+
+  it('the identity map changes nothing', () => {
+    expect(remapFamilies(families, [0, 1, 2, 3, 4, 5])).toEqual(families)
+  })
+
+  it('never mutates its inputs', () => {
+    const before = structuredClone(families)
+    const origin = [5, 4, 3, 2, 1, 0]
+    remapFamilies(families, origin)
+    expect(families).toEqual(before)
+    expect(origin).toEqual([5, 4, 3, 2, 1, 0])
+  })
 })

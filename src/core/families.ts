@@ -290,3 +290,25 @@ export function recolorShade(anim: Lottie, family: ColorFamily, from: string, to
   const members = new Set(family.sites)
   return mapColorSites(anim, (site) => (members.has(site.index) && site.hex === fromHex ? to : null))
 }
+
+// Carries `families` over an edit that changed the colour sites (the
+// inscription of a sticker was replaced). `siteOrigin[i]` is the index, before
+// the edit, of the site that new site `i` comes from. A family takes every new
+// site whose origin was one of its sites; its key is the first new site coming
+// from its old key, else its first new site. id, name and neutral are kept; a
+// family left without sites is dropped. Families are never recomputed here, so
+// a recoloured family stays one family (D14, D18).
+export function remapFamilies(families: ColorFamily[], siteOrigin: number[]): ColorFamily[] {
+  const remapped: ColorFamily[] = []
+  for (const family of families) {
+    const members = new Set(family.sites)
+    const sites: number[] = []
+    siteOrigin.forEach((origin, index) => {
+      if (members.has(origin)) sites.push(index)
+    })
+    if (sites.length === 0) continue
+    const keySite = sites.find((index) => siteOrigin[index] === family.keySite) ?? sites[0]
+    remapped.push({ id: family.id, name: family.name, neutral: family.neutral, sites, keySite })
+  }
+  return remapped
+}
