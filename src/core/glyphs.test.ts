@@ -59,6 +59,47 @@ function deepFreeze<T>(value: T): T {
   return value
 }
 
+/** Extent of a contour's vertices only (equals the curve extent for straight-sided letters like L). */
+function vertexExtent(contours: GlyphContour[]): Box {
+  const pts = contours.flatMap((c) => c.v)
+  return {
+    x0: Math.min(...pts.map((p) => p[0])),
+    y0: Math.min(...pts.map((p) => p[1])),
+    x1: Math.max(...pts.map((p) => p[0])),
+    y1: Math.max(...pts.map((p) => p[1])),
+  }
+}
+
+/** Curve extent of contours found by dense sampling, independent of the implementation's analytic solver. */
+function sampledExtent(contours: GlyphContour[]): Box {
+  const xs: number[] = []
+  const ys: number[] = []
+  for (const c of contours) {
+    const n = c.v.length
+    for (let k = 0; k < n; k++) {
+      const a = c.v[k]
+      const b = c.v[(k + 1) % n]
+      const p1: Pt = [a[0] + c.o[k][0], a[1] + c.o[k][1]]
+      const p2: Pt = [b[0] + c.i[(k + 1) % n][0], b[1] + c.i[(k + 1) % n][1]]
+      for (let m = 0; m <= 400; m++) {
+        const t = m / 400
+        const u = 1 - t
+        xs.push(u * u * u * a[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * b[0])
+        ys.push(u * u * u * a[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * b[1])
+      }
+    }
+  }
+  return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }
+}
+
+function expectPointsClose(actual: Pt[], expected: Pt[], label: string): void {
+  expect(actual, label).toHaveLength(expected.length)
+  actual.forEach((p, n) => {
+    expect(p[0], `${label}[${n}].x`).toBeCloseTo(expected[n][0], 6)
+    expect(p[1], `${label}[${n}].y`).toBeCloseTo(expected[n][1], 6)
+  })
+}
+
 const WIDE: Box = { x0: 0, y0: 0, x1: 100000, y1: 100 } // always height-limited
 
 describe('glyph data', () => {
@@ -177,19 +218,79 @@ describe('layoutLine', () => {
     expect(kerned.x1 - kerned.x0).toBeCloseTo(plain.x1 - plain.x0 + k * s, 6)
   })
 
-  it('scales tangents but does not translate them', () => {
-    const placed = layoutLine(set, 'O', { x0: 0, y0: 0, x1: 100000, y1: 1456 }) // s = 1
-    const src = set.glyphs.O.contours[0]
-    const out = placed[0].contours[0]
-    expect(out.v).toHaveLength(src.v.length)
-    expect(out.i).toEqual(src.i)
-    expect(out.o).toEqual(src.o)
-    const dx = out.v[0][0] - src.v[0][0]
-    const dy = out.v[0][1] - src.v[0][1]
-    out.v.forEach((p, n) => {
-      expect(p[0]).toBeCloseTo(src.v[n][0] + dx, 6)
-      expect(p[1]).toBeCloseTo(src.v[n][1] + dy, 6)
+  it('scales the shape uniformly and scales tangents without translating them (s != 1)', () => {
+    const s = 1000 / set.capHeight // wide box, height 1000: s = 0.6868...
+    const placed = layoutLine(set, 'O', { x0: 0, y0: 0, x1: 100000, y1: 1000 })
+    expect(s).not.toBeCloseTo(1, 1)
+    set.glyphs.O.contours.forEach((src, k) => {
+      const out = placed[0].contours[k]
+      expectPointsClose(out.i, src.i.map(([x, y]): Pt => [s * x, s * y]), `O[${k}].i`)
+      expectPointsClose(out.o, src.o.map(([x, y]): Pt => [s * x, s * y]), `O[${k}].o`)
+      // vertices are the source vertices scaled by s, then translated by one common offset
+      const dx = out.v[0][0] - s * src.v[0][0]
+      const dy = out.v[0][1] - s * src.v[0][1]
+      expectPointsClose(out.v, src.v.map(([x, y]): Pt => [s * x + dx, s * y + dy]), `O[${k}].v`)
     })
+  })
+
+  it('places contours, not just bounds: COOL in a 1000 x 100 box (s != 1)', () => {
+    const box: Box = { x0: 0, y0: 0, x1: 1000, y1: 100 }
+    const s = 100 / set.capHeight
+    const placed = layoutLine(set, 'COOL', box)
+    expect(placed.map((p) => p.char)).toEqual(['C', 'O', 'O', 'L'])
+
+    // L is straight-sided: its vertices span the full box height.
+    const l = vertexExtent(placed[3].contours)
+    expect(l.y0).toBeGreaterThanOrEqual(-0.5)
+    expect(l.y0).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(l.y1 - 100)).toBeLessThanOrEqual(0.5)
+
+    // The line's vertex extent is centred on x = 500.
+    const all = vertexExtent(placed.flatMap((p) => p.contours))
+    expect(Math.abs((all.x0 + all.x1) / 2 - 500)).toBeLessThanOrEqual(0.5)
+
+    // Tangents are the source tangents times s, per glyph and contour.
+    placed.forEach((p) => {
+      const src = set.glyphs[p.char].contours
+      expect(p.contours).toHaveLength(src.length)
+      p.contours.forEach((out, k) => {
+        expectPointsClose(out.i, src[k].i.map(([x, y]): Pt => [s * x, s * y]), `${p.char}[${k}].i`)
+        expectPointsClose(out.o, src[k].o.map(([x, y]): Pt => [s * x, s * y]), `${p.char}[${k}].o`)
+        // Same shape as the source, scaled by s: edge vectors between consecutive vertices scale by s.
+        out.v.forEach((v, n) => {
+          const m = (n + 1) % out.v.length
+          expect(out.v[m][0] - v[0], `${p.char}[${k}] edge ${n}.x`).toBeCloseTo(s * (src[k].v[m][0] - src[k].v[n][0]), 6)
+          expect(out.v[m][1] - v[1], `${p.char}[${k}] edge ${n}.y`).toBeCloseTo(s * (src[k].v[m][1] - src[k].v[n][1]), 6)
+        })
+      })
+    })
+
+    // Glyph origins advance by the (kerned) advance times s: C -> O -> O -> L.
+    const first = (g: PlacedGlyph): number => g.contours[0].v[0][0]
+    const srcFirst = (ch: string): number => set.glyphs[ch].contours[0].v[0][0]
+    const pen = (n: number, ch: string): number => first(placed[n]) / s - srcFirst(ch)
+    expect(pen(1, 'O') - pen(0, 'C')).toBeCloseTo(set.glyphs.C.advance + (set.kerning.CO ?? 0), 4)
+    expect(pen(2, 'O') - pen(1, 'O')).toBeCloseTo(set.glyphs.O.advance + (set.kerning.OO ?? 0), 4)
+    expect(pen(3, 'L') - pen(2, 'O')).toBeCloseTo(set.glyphs.O.advance + (set.kerning.OL ?? 0), 4)
+  })
+
+  it('bounds agree with the placed contour geometry', () => {
+    const placed = layoutLine(set, 'COOL', { x0: 0, y0: 0, x1: 1000, y1: 100 })
+    for (const p of placed) {
+      const real = sampledExtent(p.contours)
+      expect(p.bounds!.x0, `${p.char} x0`).toBeCloseTo(real.x0, 2)
+      expect(p.bounds!.y0, `${p.char} y0`).toBeCloseTo(real.y0, 2)
+      expect(p.bounds!.x1, `${p.char} x1`).toBeCloseTo(real.x1, 2)
+      expect(p.bounds!.y1, `${p.char} y1`).toBeCloseTo(real.y1, 2)
+    }
+    // The narrow-box (width-limited) case too: s is then set by the width, not the height.
+    for (const p of layoutLine(set, 'WWWWWW', { x0: 20, y0: 10, x1: 120, y1: 110 })) {
+      const real = sampledExtent(p.contours)
+      expect(p.bounds!.x0).toBeCloseTo(real.x0, 2)
+      expect(p.bounds!.x1).toBeCloseTo(real.x1, 2)
+      expect(p.bounds!.y0).toBeCloseTo(real.y0, 2)
+      expect(p.bounds!.y1).toBeCloseTo(real.y1, 2)
+    }
   })
 
   it('bounds follow the curve, not the control points', () => {
