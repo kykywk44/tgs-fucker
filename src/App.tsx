@@ -5,6 +5,7 @@ import { readTgs, writeTgs, type Lottie } from '@/core/tgs'
 import { Preview } from '@/preview/Preview'
 import { Checks } from '@/ui/Checks'
 import { DropZone, useFilePicker } from '@/ui/DropZone'
+import { useColorSession } from '@/ui/colorSession'
 import { Palette } from '@/ui/Palette'
 import { Toolbar } from '@/ui/Toolbar'
 import { useHistory, useUndoShortcuts } from '@/ui/useHistory'
@@ -124,6 +125,15 @@ function App() {
     }
   }, [present])
 
+  // The one colour-editing session of the inspector; its refocus selectors are looked up inside it.
+  const inspectorRef = useRef<HTMLElement>(null)
+  const colorSession = useColorSession({
+    anim: present,
+    onPreview: setPreviewAnim,
+    onCommit: handleCommit,
+    rootRef: inspectorRef,
+  })
+
   const reasons = useMemo(() => blockedReasons(checks), [checks])
 
   const handleExport = useCallback(async () => {
@@ -168,16 +178,11 @@ function App() {
               </div>
             </main>
             <aside
+              ref={inspectorRef}
               aria-label="Инспектор"
               className="flex shrink-0 flex-col gap-6 border-t border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l"
             >
-              <Palette
-                key={fileSeq}
-                anim={present}
-                families={families}
-                onPreview={setPreviewAnim}
-                onCommit={handleCommit}
-              />
+              <Palette key={fileSeq} anim={present} families={families} session={colorSession} />
               <Checks checks={checks} />
             </aside>
           </div>
