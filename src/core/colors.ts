@@ -162,6 +162,23 @@ export function sitesWithin(anim: Lottie, nodes: ReadonlySet<object>): number[] 
   return indices
 }
 
+// The fl/st/gf/gs node of every color site, by site index (the readColorSites
+// walk order): the very objects of `anim`, so a gradient's stops all map to
+// one node. One walk; nothing is cloned or changed.
+export function siteNodes(anim: Lottie): object[] {
+  const nodes: object[] = []
+  const stack: object[] = []
+  walk(
+    anim,
+    () => { nodes.push(stack[stack.length - 1]) },
+    {
+      enter: (node) => { stack.push(node) },
+      leave: () => { stack.pop() },
+    },
+  )
+  return nodes
+}
+
 // Returns a deep copy of `anim` where each site is recoloured to `fn(site)`.
 // A null result, or the site's current hex, leaves its floats untouched. Other
 // sites are written as r, g, b only (alpha and component count are kept).

@@ -892,3 +892,56 @@ Orchestrator, dev server `tgs-dev` (port 5173):
 8. `minimal.json`: no «Части», palette works as before.
 9. `npm run build` + `npx vite preview`: works; the glyph JSON loads as a separate chunk.
 10. User: compare with Telegram, send an exported sticker.
+
+---
+
+# Iteration 4 — Parts for any sticker (atoms + click selection)
+
+Spec: this section (approved by the user on 2026-10-18; full write-up with the LLM-council verdict in the approved plan `~/.claude/plans/gentle-pondering-metcalfe.md`).
+
+## Context
+
+Parts exist only for the three profiled stickers. The user wants any uploaded sticker split into editable parts. Council verdict: no neural net; a script splits the file into **atoms**, the person assembles parts with clicks; Lottie structure only feeds "expand selection" and "select similar"; an LLM may later suggest parts (set-of-marks), never on the critical path. Operations on a part (user, 2026-10-18): recolour, hide/delete, move/scale, replace content (inscription stays profile-only).
+
+Measured on 17 samples (`node scripts/measure-corpus.mjs`, task 10a):
+- Every hand-profile part is a whole set of atoms (0 split atoms). Eye parts = 1–3 atoms.
+- 1525 atoms, median 68 per sticker, max 353; Cool «Искры» = 112 atoms, «Огонь» = 44.
+- ID render with antialias 0 and opacity as 0/100 hold keyframes: 0.00% non-ID pixels on every file.
+- 10% of atoms are < 16 px, 6.6% never topmost → an atom tree/list is needed besides canvas clicks.
+- Precomp reuse only in Cool (`comp_0` × 8). Root `nm` duplicated (Case/Suitcase) or missing (Target) → user profiles are keyed by a structural fingerprint.
+
+## Extra global constraints (Iteration 4)
+
+- `src/core/atoms.ts` (and later `src/core/idmap.ts`) follow the `src/core` rules.
+- `scripts/measure-corpus.mjs` loads core TS through Vite's `runnerImport` (no new dependency) and must stay read-only.
+
+## Tasks
+
+### Task 10a: Corpus measurement (done)
+`scripts/measure-corpus.mjs`, `scripts/README.md`. Per file: KB, layers, atoms, max atoms per layer, tiny (< 16 px) and unpickable atoms from the ID render over 45 frames, trim paths, repeaters, gradients, mattes/masks, deepest atom, impure-pixel share, precomp reuse; root `nm` duplicates/missing; hand profiles vs atoms.
+
+### Task 10b: Atoms core
+Files: `src/core/colors.ts` (+ `siteNodes`), `src/core/atoms.ts`, `src/core/atoms.test.ts`, `src/core/__fixtures__/atoms.json`; the measurement script uses `findAtoms`.
+
+```ts
+export function siteNodes(anim: Lottie): object[]   // colors.ts: fl/st/gf/gs node of every site, by identity
+export interface AtomLocation { asset?: string; layer: number; groups: number[] }
+export interface Atom { id: number; at: AtomLocation; layerName: string | null; sites: number[]; instances: number }
+export function findAtoms(anim: Lottie): Atom[]
+export function expandLevels(anim: Lottie, atoms: readonly Atom[], id: number): number[][]
+export function similarAtoms(anim: Lottie, atoms: readonly Atom[], ids: readonly number[]): number[]
+export function fingerprint(anim: Lottie): string
+```
+- Atom = shape list (`shapes` / `gr.it`) directly holding a paint; order = assets first, then root layers, pre-order. `sites` = sites of its own paints only. `instances` = times an asset is drawn through precomp layers.
+- `expandLevels`: atom → each enclosing group (innermost first) → layer → layers sharing each ancestor of the parent chain → whole asset; only strictly growing levels.
+- `similarAtoms`: same signature (shape kinds with path vertex counts + child-group count + paint kinds + colours) or same group path in a layer that is a copy by name: equal stems with at least one numbered (`Ding_1` ↔ `Ding_14`, `Paper` ↔ `Paper 2`; two unnumbered `Arm` are not; generic stems like «Shape Layer», «Слой» excluded).
+- `fingerprint`: FNV-1a over layer kinds, names, `ind`/`parent`, `refId` and shape-tree kinds; blind to colours.
+
+Tests: fixture cases for each function; samples (skipped when absent): atoms partition the sites, levels grow strictly, hand-profile parts are whole atom sets; Cool: one spark → layer level → similar = exactly «Искры»; fire atoms have `instances` 8.
+
+### Task 10c–10e
+Picking (ID render in `src/core/idmap.ts`, `Animation.render(..., antialias)`, worker `pick`), selection UI (canvas + atom tree, expand, Shift-add, «Выбрать похожие», user profiles by fingerprint) and part operations — specified after 10b review.
+
+Notes from the 10b review for these tasks:
+- `idmap.ts`: keep `hd` and binarized `o` when a gradient becomes a solid ID paint; keep keyframe `e`; force `bm` to 0; luma mattes (`tt` 3/4) need special handling (the corpus has only alpha mattes, so 0.00% impure says nothing about them).
+- User profiles: the fingerprint changes after delete/replace operations, so key a profile by the fingerprint of the file as opened, or store parts inside the file — decide in 10d.

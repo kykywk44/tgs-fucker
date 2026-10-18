@@ -10,6 +10,7 @@ import {
   mapColorSites,
   readColorSites,
   replaceColor,
+  siteNodes,
   sitesWithin,
   type ColorEntry,
 } from './colors'
@@ -575,5 +576,30 @@ describe('sitesWithin', () => {
     sitesWithin(fixture, nodes)
     expect(fixture).toEqual(snapshot)
     expect(nodes.size).toBe(2)
+  })
+})
+
+describe('siteNodes', () => {
+  it('maps every site to its own fl/st/gf/gs node, by identity', () => {
+    const nodes = siteNodes(fixture)
+    expect(nodes).toHaveLength(readColorSites(fixture).length)
+    nodes.forEach((node, index) => {
+      expect(['fl', 'st', 'gf', 'gs']).toContain((node as { ty?: string }).ty)
+      expect(sitesWithin(fixture, new Set([node]))).toContain(index)
+    })
+  })
+
+  it('gives one node for all stops of a gradient and for all keyframes of a colour', () => {
+    const nodes = siteNodes(fixture)
+    expect(nodes[10]).toBe(nodes[11]) // gradient stops
+    expect(nodes[11]).toBe(nodes[12])
+    expect(nodes[4]).toBe(nodes[7]) // animated fill keyframes
+    expect(nodes[3]).not.toBe(nodes[2])
+  })
+
+  it('does not mutate its input', () => {
+    const snapshot = structuredClone(fixture)
+    siteNodes(fixture)
+    expect(fixture).toEqual(snapshot)
   })
 })
