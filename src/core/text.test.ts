@@ -27,7 +27,8 @@ type Json = Record<string, any>
 // slightly different shades (#dd0000 / #0000dd) so the template (`two`, the
 // first letter group) can be told apart. Every path has 3 keyframes. The face
 // at keyframe k is H[k] of the face at keyframe 0, the shadow at keyframe k is
-// G[k] of the face at keyframe 0, in container coordinates.
+// G[k] of the face at keyframe 0, in container coordinates; SPEC stores them
+// as its motion, as the Cool profile stores the motion of the Cool letters.
 
 const IDENTITY: Mat3 = [1, 0, 0, 0, 1, 0, 0, 0, 1]
 const H: Mat3[] = [
@@ -71,6 +72,7 @@ const SPEC: TextSpec = {
   box: { x0: 100, y0: 200, x1: 400, y1: 300 },
   pop: { first: 40, step: 6 },
   maxLength: 6,
+  motion: { face: H, shadow: G },
 }
 
 function rgba(hex: string): number[] {
@@ -282,27 +284,35 @@ function distance(a: Mat3, b: Mat3, points: Pt[]): number {
   )
 }
 
-// Deep equality where numbers may differ by `tol`.
-function expectClose(actual: unknown, expected: unknown, tol: number, path = ''): void {
+// Deep equality where numbers may differ by `tol`: the first difference, or
+// null. Plain walk (no expect per value): the Cool sample has ~10^5 numbers.
+function closeDiff(actual: unknown, expected: unknown, tol: number, path: string): string | null {
   if (typeof expected === 'number') {
-    expect(typeof actual, path).toBe('number')
-    expect(Math.abs((actual as number) - expected), path).toBeLessThanOrEqual(tol)
-    return
+    return typeof actual === 'number' && Math.abs(actual - expected) <= tol ? null : `${path}: ${actual} vs ${expected}`
   }
   if (Array.isArray(expected)) {
-    expect(Array.isArray(actual), path).toBe(true)
-    expect((actual as unknown[]).length, path).toBe(expected.length)
-    expected.forEach((item, n) => expectClose((actual as unknown[])[n], item, tol, `${path}[${n}]`))
-    return
+    if (!Array.isArray(actual) || actual.length !== expected.length) return `${path}: not an array of ${expected.length}`
+    for (let n = 0; n < expected.length; n++) {
+      const diff = closeDiff(actual[n], expected[n], tol, `${path}[${n}]`)
+      if (diff !== null) return diff
+    }
+    return null
   }
   if (typeof expected === 'object' && expected !== null) {
-    expect(Object.keys(actual as object), path).toEqual(Object.keys(expected))
-    for (const key of Object.keys(expected)) {
-      expectClose((actual as Json)[key], (expected as Json)[key], tol, `${path}.${key}`)
+    if (typeof actual !== 'object' || actual === null || Array.isArray(actual)) return `${path}: not an object`
+    const keys = Object.keys(expected)
+    if (Object.keys(actual).join('\u0000') !== keys.join('\u0000')) return `${path}: keys differ`
+    for (const key of keys) {
+      const diff = closeDiff((actual as Json)[key], (expected as Json)[key], tol, `${path}.${key}`)
+      if (diff !== null) return diff
     }
-    return
+    return null
   }
-  expect(actual, path).toBe(expected)
+  return Object.is(actual, expected) ? null : `${path}: ${String(actual)} vs ${String(expected)}`
+}
+
+function expectClose(actual: unknown, expected: unknown, tol: number, path = ''): void {
+  expect(closeDiff(actual, expected, tol, path)).toBeNull()
 }
 
 function hexes(anim: Lottie): string[] {
@@ -340,6 +350,15 @@ describe('validateText', () => {
     expect(validateText('ABCDEFG', spec, SET)).toEqual({ ok: false, error: 'Не больше 6 символов' })
     expect(validateText('ABC', { ...spec, maxLength: 2 }, SET)).toEqual({ ok: false, error: 'Не больше 2 символов' })
     expect(validateText('  AB    CDE  ', spec, SET)).toEqual({ ok: true, text: 'AB CDE' })
+  })
+
+  it('composes decomposed characters first (NFC): a pasted «й» is one character', () => {
+    const decomposed = '\u0438\u0306' // и + combining breve
+    expect(decomposed).toHaveLength(2)
+    expect(validateText(decomposed, spec, SET)).toEqual({ ok: true, text: 'Й' })
+    expect(validateText('\u0418\u0306', spec, SET)).toEqual({ ok: true, text: 'Й' })
+    expect(validateText(decomposed.repeat(6), spec, SET)).toEqual({ ok: true, text: 'ЙЙЙЙЙЙ' })
+    expect(validateText(`  ${decomposed}о${decomposed}  `, spec, SET)).toEqual({ ok: true, text: 'ЙОЙ' })
   })
 
   it('rejects a character missing from the font, naming it', () => {
@@ -582,14 +601,47 @@ describe('replaceText', () => {
     expect(() => replaceText(synthetic(), { ...SPEC, container: { layer: 'Text' } }, 'AB', SET)).toThrow()
   })
 
-  it('throws when a face and its shadow have different vertex counts', () => {
+  it('replays spec.motion, not a motion fitted on the current letters', () => {
+    const swapped: TextSpec = { ...SPEC, motion: { face: [H[0], H[2], H[1]], shadow: [G[0], G[2], G[1]] } }
+    const motion = fitMotion(replaceText(synthetic(), swapped, 'AB', SET).anim, SPEC)
+    for (let k = 0; k < 3; k++) {
+      expect(distance(motion.face[k], swapped.motion.face[k], ORIGINAL_POINTS)).toBeLessThan(0.1)
+      expect(distance(motion.shadow[k], swapped.motion.shadow[k], ORIGINAL_POINTS)).toBeLessThan(0.1)
+    }
+  })
+
+  it('never reads the geometry of the current letters: degenerate letters do not matter', () => {
+    const anim = synthetic()
+    // Every path of every letter collapses onto a line (no homography fits
+    // that); shadows even lose a vertex.
+    for (const group of groupsOf(container(anim, SPEC))) {
+      groupsOf(group).forEach((part, which) => {
+        for (const sh of (part.it as Json[]).filter((item) => item.ty === 'sh')) {
+          for (const kf of sh.ks.k as Json[]) {
+            const v: Pt[] = which === 0 ? [[0, 0], [1, 0], [2, 0]] : [[0, 0], [1, 0]]
+            kf.s = [{ i: v.map((): Pt => [0, 0]), o: v.map((): Pt => [0, 0]), v, c: true }]
+          }
+        }
+      })
+    }
+    expect(replaceText(anim, SPEC, 'AB', SET)).toEqual(replaceText(synthetic(), SPEC, 'AB', SET))
+  })
+
+  it('throws a clear error when the stored motion does not match the letter keyframes', () => {
+    const message = (face: number, shadow: number): string =>
+      `replaceText: the letter paths have 3 keyframes but the stored motion has ${face} face and ${shadow} shadow matrices`
+    const short: TextSpec = { ...SPEC, motion: { face: H.slice(0, 2), shadow: G.slice(0, 2) } }
+    expect(() => replaceText(synthetic(), short, 'AB', SET)).toThrow(new Error(message(2, 2)))
+    const uneven: TextSpec = { ...SPEC, motion: { face: H, shadow: G.slice(0, 2) } }
+    expect(() => replaceText(synthetic(), uneven, 'AB', SET)).toThrow(new Error(message(3, 2)))
+    // ... and when a letter other than the template has other keyframes
     const anim = synthetic()
     const shadow = groupsOf(groupsOf(container(anim, SPEC))[1])[1]
-    for (const kf of (shadow.it as Json[])[0].ks.k as Json[]) {
-      const shape = kf.s[0]
-      for (const key of ['v', 'i', 'o']) shape[key] = shape[key].slice(1)
-    }
-    expect(() => replaceText(anim, SPEC, 'AB', SET)).toThrow()
+    const sh = (shadow.it as Json[])[0]
+    sh.ks.k = sh.ks.k.slice(0, 2)
+    expect(() => replaceText(anim, SPEC, 'AB', SET)).toThrow(
+      new Error('replaceText: the paths of letter «one» do not have the 3 keyframes of the stored motion'),
+    )
   })
 })
 
@@ -616,6 +668,72 @@ describe.skipIf(!existsSync(COOL_FILE))('CoolSticker.tgs inscription', () => {
     expect(motion.face).toHaveLength(9)
     expect(motion.error).toBeLessThan(0.2)
     console.log(`Cool original letters: max homography fit error ${motion.error.toFixed(4)} px`)
+  })
+
+  it('the stored motion reproduces the original letters (< 0.2 px at every keyframe)', async () => {
+    const anim = await load()
+    const spec = await coolSpec(anim)
+    expect(spec.motion.face).toHaveLength(9)
+    expect(spec.motion.shadow).toHaveLength(9)
+    const letters = letterGroups(anim, spec)
+    const src = letters.flatMap((group) => groupPoints(groupsOf(group)[0], 0))
+    expect(src).toHaveLength(108) // 36 vertices, each with two absolute handles
+    let error = 0
+    for (let k = 0; k < 9; k++) {
+      for (const [which, h] of [[0, spec.motion.face[k]], [1, spec.motion.shadow[k]]] as const) {
+        const dst = letters.flatMap((group) => groupPoints(groupsOf(group)[which], k))
+        src.forEach((p, n) => {
+          const [x, y] = applyHomography(h, p)
+          error = Math.max(error, Math.hypot(x - dst[n][0], y - dst[n][1]))
+        })
+      }
+    }
+    expect(error).toBeLessThan(0.2)
+    console.log(`Cool stored motion: max reprojection error on the original letters ${error.toFixed(4)} px`)
+  })
+
+  // Regressions: the motion once was fitted on whatever letters the file held,
+  // so after a thin glyph (one rectangle, a dot, ...) the next edit drifted or threw.
+  it("COOL → 'I' → 'HELLO' equals COOL → 'HELLO'", async () => {
+    const input = await load()
+    const spec = await coolSpec(input)
+    const direct = replaceText(input, spec, 'HELLO', SET)
+    const viaI = replaceText(replaceText(input, spec, 'I', SET).anim, spec, 'HELLO', SET)
+    expectClose(viaI.anim, direct.anim, 0.15)
+  })
+
+  it("COOL → 'II' (or 'I I', '--') → 'COOL' equals COOL → 'COOL'", async () => {
+    const input = await load()
+    const spec = await coolSpec(input)
+    const direct = replaceText(input, spec, 'COOL', SET)
+    for (const via of ['II', 'I I', '--']) {
+      const back = replaceText(replaceText(input, spec, via, SET).anim, spec, 'COOL', SET)
+      expectClose(back.anim, direct.anim, 0.15, via)
+    }
+  })
+
+  it("every thin text (I ! . , : ; - ') can be followed by 'WOW'", async () => {
+    const input = await load()
+    const spec = await coolSpec(input)
+    const direct = replaceText(input, spec, 'WOW', SET)
+    for (const thin of ['I', '!', '.', ',', ':', ';', '-', "'"]) {
+      const first = replaceText(input, spec, thin, SET)
+      expect(readText(first.anim, spec), thin).toBe(thin)
+      const next = replaceText(first.anim, spec, 'WOW', SET)
+      expect(readText(next.anim, spec), thin).toBe('WOW')
+      expectClose(next.anim, direct.anim, 0.15, thin)
+    }
+  })
+
+  it("'!' survives export and re-opening: the profile matches and 'WOW' replaces it", async () => {
+    const input = await load()
+    const spec = await coolSpec(input)
+    const reopened = await readTgs(await writeTgs(replaceText(input, spec, '!', SET).anim))
+    const reopenedSpec = await coolSpec(reopened)
+    expect(readText(reopened, reopenedSpec)).toBe('!')
+    const { anim } = replaceText(reopened, reopenedSpec, 'WOW', SET)
+    expect(readText(anim, reopenedSpec)).toBe('WOW')
+    expect(matchProfile(anim)?.profile.id).toBe('cool')
   })
 
   it("after 'ПРИВЕТ' the profile still matches, the parts follow the new letters", async () => {
@@ -670,12 +788,15 @@ describe.skipIf(!existsSync(COOL_FILE))('CoolSticker.tgs inscription', () => {
     for (const check of telegramChecks(anim, bytes.length)) expect(check.ok, check.id).toBe(true)
   })
 
-  it('stays within the 64 KB budget for the heaviest texts', async () => {
+  // '@' has by far the most vertices of the bundled glyphs (79; next is '%'
+  // with 60), and six of them are the heaviest 6-character text: measured over
+  // every glyph, «@@@@@@» comes out at about 92 % of the limit.
+  it('stays within the 64 KB budget, the worst case «@@@@@@» included', async () => {
     const input = await load()
     const spec = await coolSpec(input)
     const original = (await writeTgs(input)).length
     const sizes: Record<string, number> = {}
-    for (const text of ['COOL', 'ЖЖЖЖЖЖ', 'ШЩЖФЫЮ', 'WWWWWW']) {
+    for (const text of ['COOL', 'ЖЖЖЖЖЖ', 'ШЩЖФЫЮ', 'WWWWWW', '@@@@@@']) {
       sizes[text] = (await writeTgs(replaceText(input, spec, text, SET).anim)).length
     }
     console.log(`Cool .tgs bytes: original ${original}, ${Object.entries(sizes).map(([t, n]) => `${t} ${n}`).join(', ')}`)

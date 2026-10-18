@@ -1,5 +1,6 @@
 import { readColorSites, sitesWithin } from './colors'
 import { isNeutral } from './families'
+import type { Mat3 } from './homography'
 import { hexToOklch } from './oklch'
 import { PROFILES } from './profiles'
 import type { Lottie } from './tgs'
@@ -25,6 +26,9 @@ export interface TextSpec {
   box: { x0: number; y0: number; x1: number; y1: number } // cap box of the original letters at path kf 0, container coords
   pop: { first: number; step: number } // first letter's pop start frame; frames between starts
   maxLength: number
+  // One homography per path keyframe k, container coords: face kf 0 -> face kf k, face kf 0 -> shadow kf k.
+  // Measured once from the original letters, so new letters always replay the sticker's own motion.
+  motion: { face: Mat3[]; shadow: Mat3[] }
 }
 
 export interface PartSpec {

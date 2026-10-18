@@ -4,7 +4,9 @@
 // [x', y', w] = H [x, y, 1], the image being (x'/w, y'/w). The inscription of
 // the Cool sticker turns in 3D; one homography per keyframe maps the flat
 // letters at keyframe 0 onto that keyframe (verified on the sample to ~0.1 px),
-// so new letters can replay the same motion.
+// so new letters can replay the same motion. Those homographies were fitted
+// once with fitHomography and are stored in the Cool profile; replaceText only
+// applies them.
 // Pure TS: no DOM, never mutates its inputs.
 
 export type Mat3 = [number, number, number, number, number, number, number, number, number]

@@ -1,6 +1,6 @@
 import { readColorSites, sitesWithin } from './colors'
 import { layoutLine, type GlyphContour, type GlyphSet } from './glyphs'
-import { applyHomography, fitHomography, type Mat3 } from './homography'
+import { applyHomography, type Mat3 } from './homography'
 import { resolveSelector, type TextSpec } from './parts'
 import type { Lottie } from './tgs'
 
@@ -10,9 +10,14 @@ import type { Lottie } from './tgs'
 // top), each letter being [face group, shadow group, tr]. The face and shadow
 // paths are animated: at every path keyframe one homography maps all faces at
 // keyframe 0 (container coordinates) onto that keyframe (the box turning in
-// 3D), and another maps them onto the shadows. New text is laid out flat at
-// keyframe 0 with bundled glyph outlines and replays that motion; every letter
-// keeps the template letter's fills and pop, staggered by `spec.pop`.
+// 3D), and another maps them onto the shadows. Those homographies were
+// measured once from the original letters and are stored in the profile
+// (`spec.motion`): they are never fitted on the letters the file holds now,
+// which after an edit are glyphs of ours (a thin «I» or «!» would make that
+// fit drift or fail). New text is laid out flat at keyframe 0 with bundled
+// glyph outlines and replays that motion; every letter keeps the template
+// letter's fills, path keyframe times and easing, and pop, staggered by
+// `spec.pop`.
 // Replaced letters are named `txt:<char>`, so the text can be read back.
 // Pure TS: no DOM, never mutates its inputs.
 
@@ -76,12 +81,13 @@ function round(value: number): number {
 }
 
 /**
- * Normalises an inscription: upper-cased, trimmed, inner whitespace runs
- * collapsed to one space. It must then be non-empty, at most
- * `spec.maxLength` characters, and every character must be in `set`.
+ * Normalises an inscription: composed (NFC, so a pasted decomposed «Й» is one
+ * character), upper-cased, trimmed, inner whitespace runs collapsed to one
+ * space. It must then be non-empty, at most `spec.maxLength` characters, and
+ * every character must be in `set`.
  */
 export function validateText(input: string, spec: TextSpec, set: GlyphSet): TextCheck {
-  const text = input.toUpperCase().trim().replace(/\s+/g, ' ')
+  const text = input.normalize('NFC').toUpperCase().trim().replace(/\s+/g, ' ')
   if (text === '') return { ok: false, error: 'Пустая надпись' }
   const chars = [...text]
   if (chars.length > spec.maxLength) return { ok: false, error: `Не больше ${spec.maxLength} символов` }
@@ -117,40 +123,13 @@ export function readText(anim: Lottie, spec: TextSpec): string {
 
 // --- Reading the template letters -----------------------------------------------
 
-interface Shape { v: Pt[]; i: Pt[]; o: Pt[] }
-
-function isPointList(value: unknown): value is Pt[] {
-  return (
-    Array.isArray(value) &&
-    value.every((p) => Array.isArray(p) && p.length >= 2 && typeof p[0] === 'number' && typeof p[1] === 'number')
-  )
-}
-
-// The shape of a keyframe's `s` or `e` (`[shape]`), or null.
-function shapeOf(value: unknown): Shape | null {
-  const shape: unknown = Array.isArray(value) ? value[0] : undefined
-  if (!isObject(shape) || !isPointList(shape.v) || !isPointList(shape.i) || !isPointList(shape.o)) return null
-  if (shape.i.length !== shape.v.length || shape.o.length !== shape.v.length) return null
-  return { v: shape.v, i: shape.i, o: shape.o }
-}
-
-function staticPoint(prop: unknown, what: string): Pt {
-  const k = isObject(prop) ? prop.k : undefined
-  if (Array.isArray(k) && typeof k[0] === 'number' && typeof k[1] === 'number') return [k[0], k[1]]
-  throw new Error(`replaceText: ${what} must be a static point`)
-}
-
-// A face or shadow group: its paths' keyframes and the offset taking its local
-// coordinates to the container's (tr.p − tr.a).
-interface PartRef { group: Json; offset: Pt; paths: Json[][] }
+// A face or shadow group and the keyframes of each of its paths.
+interface PartRef { group: Json; paths: Json[][] }
 
 interface LetterRef { group: Json; face: PartRef; shadow: PartRef; tr: Json }
 
 function readPart(group: Json, what: string): PartRef {
-  const tr = itemsOf(group).find(isTransform)
-  if (!tr) throw new Error(`replaceText: ${what} has no transform`)
-  const p = staticPoint(tr.p, `${what} tr.p`)
-  const a = staticPoint(tr.a, `${what} tr.a`)
+  if (!itemsOf(group).some(isTransform)) throw new Error(`replaceText: ${what} has no transform`)
   const paths = itemsOf(group)
     .filter(isPath)
     .map((path) => {
@@ -160,7 +139,7 @@ function readPart(group: Json, what: string): PartRef {
       }
       return ks.k
     })
-  return { group, offset: [p[0] - a[0], p[1] - a[1]], paths }
+  return { group, paths }
 }
 
 function readLetter(group: Json): LetterRef {
@@ -173,8 +152,6 @@ function readLetter(group: Json): LetterRef {
 
 // --- Motion ---------------------------------------------------------------------
 
-type Key = 's' | 'e'
-
 // The homographies of one path keyframe, for its `s` and (if any) its `e`.
 interface KeyMaps { s?: Mat3; e?: Mat3 }
 
@@ -184,62 +161,34 @@ interface Motion {
   shadow: KeyMaps[] // face kf 0 -> shadow kf k
 }
 
-// Every vertex and absolute handle of a part's paths at keyframe `k`, in
-// container coordinates. `counts` (vertices per path) is checked when given.
-function partPoints(part: PartRef, k: number, key: Key, counts: number[]): Pt[] {
-  const [dx, dy] = part.offset
-  const points: Pt[] = []
-  part.paths.forEach((keyframes, n) => {
-    const shape = shapeOf(keyframes[k]?.[key])
-    if (!shape) throw new Error(`replaceText: a letter path has no shape at keyframe ${k} (${key})`)
-    if (shape.v.length !== counts[n]) throw new Error('replaceText: letter paths change their vertex count')
-    shape.v.forEach(([x, y], m) => {
-      points.push(
-        [x + dx, y + dy],
-        [x + shape.i[m][0] + dx, y + shape.i[m][1] + dy],
-        [x + shape.o[m][0] + dx, y + shape.o[m][1] + dy],
-      )
-    })
-  })
-  return points
-}
-
-function fitMotion(letters: LetterRef[]): Motion {
+// `spec.motion` on the template's keyframes: keyframe k's `s` replays matrix
+// k, an `e` (old-style end value: the start of keyframe k + 1) matrix k + 1.
+// Every path of every letter must have one keyframe per stored matrix.
+function storedMotion(letters: LetterRef[], spec: TextSpec): Motion {
   const keyframes = letters[0].face.paths[0]
   if (!keyframes) throw new Error('replaceText: the template letter has no face path')
-  const times = keyframes.map((kf) => kf.t)
-  const counts = letters.map((letter) => {
-    const { face, shadow } = letter
-    if (face.paths.length !== shadow.paths.length) {
-      throw new Error(`replaceText: face and shadow of letter «${String(letter.group.nm)}» have different paths`)
-    }
-    for (const paths of [face.paths, shadow.paths]) {
-      for (const path of paths) {
-        if (path.length !== keyframes.length || path.some((kf, k) => kf.t !== times[k])) {
-          throw new Error('replaceText: letter paths must share the template keyframes')
-        }
-      }
-    }
-    return face.paths.map((path, n) => {
-      const faceCount = shapeOf(path[0]?.s)?.v.length
-      const shadowCount = shapeOf(shadow.paths[n][0]?.s)?.v.length
-      if (faceCount === undefined || faceCount !== shadowCount) {
-        const name = String(letter.group.nm)
-        throw new Error(`replaceText: face and shadow of letter «${name}» have different vertex counts`)
-      }
-      return faceCount
-    })
-  })
-
-  const src = letters.flatMap((letter, n) => partPoints(letter.face, 0, 's', counts[n]))
-  const fit = (part: 'face' | 'shadow', k: number, key: Key): Mat3 | undefined => {
-    if (keyframes[k][key] === undefined) return undefined
-    const dst = letters.flatMap((letter, n) => partPoints(letter[part], k, key, counts[n]))
-    return fitHomography(src, dst)
+  const count = keyframes.length
+  const { face, shadow } = spec.motion
+  if (face.length !== count || shadow.length !== count) {
+    throw new Error(
+      `replaceText: the letter paths have ${count} keyframes but the stored motion has ` +
+        `${face.length} face and ${shadow.length} shadow matrices`,
+    )
   }
-  const maps = (part: 'face' | 'shadow'): KeyMaps[] =>
-    keyframes.map((_, k) => ({ s: fit(part, k, 's'), e: fit(part, k, 'e') }))
-  return { keyframes, face: maps('face'), shadow: maps('shadow') }
+  for (const letter of letters) {
+    if ([...letter.face.paths, ...letter.shadow.paths].some((path) => path.length !== count)) {
+      const name = String(letter.group.nm)
+      throw new Error(
+        `replaceText: the paths of letter «${name}» do not have the ${count} keyframes of the stored motion`,
+      )
+    }
+  }
+  const maps = (matrices: Mat3[]): KeyMaps[] =>
+    keyframes.map((kf, k) => {
+      if (kf.e !== undefined && k + 1 === count) throw new Error('replaceText: the last path keyframe has an end value')
+      return { s: kf.s === undefined ? undefined : matrices[k], e: kf.e === undefined ? undefined : matrices[k + 1] }
+    })
+  return { keyframes, face: maps(face), shadow: maps(shadow) }
 }
 
 // --- Building the new letters ---------------------------------------------------
@@ -363,10 +312,12 @@ function range(from: number, to: number): number[] {
  * their place, shifted by the size change; a new letter's sites map onto the
  * template letter's), for remapFamilies.
  *
- * The template is the container's first letter group. Throws when the
- * container does not resolve to exactly one group, has no letter group, or
- * the letters cannot be fitted (face and shadow paths that do not correspond,
- * paths that are not animated on the template keyframes).
+ * The template is the container's first letter group: its fills, path
+ * keyframe times and easing, and pop are copied. The motion is `spec.motion`,
+ * whatever letters the container holds. Throws when the container does not
+ * resolve to exactly one group or has no letter group, when a letter's face
+ * or shadow has no transform or paths that are not animated, or when a letter
+ * path does not have one keyframe per stored matrix.
  */
 export function replaceText(
   anim: Lottie,
@@ -383,7 +334,7 @@ export function replaceText(
   const letters = itemsIn.filter(isLetterGroup).map(readLetter)
   if (letters.length === 0) throw new Error('replaceText: the text container has no letters')
   const template = letters[0]
-  const motion = fitMotion(letters)
+  const motion = storedMotion(letters, spec)
 
   // New groups in reading order.
   const placed = layoutLine(set, check.text, spec.box)

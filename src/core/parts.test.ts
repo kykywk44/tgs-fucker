@@ -202,6 +202,7 @@ describe('resolveParts', () => {
       box: { x0: 0, y0: 0, x1: 10, y1: 5 },
       pop: { first: 1, step: 2 },
       maxLength: 6,
+      motion: { face: [], shadow: [] },
     }
     const [part] = resolveParts(fixture, profileWith({ ...BODY, text })) as Part[]
     expect(part.text).toEqual(text)
@@ -311,13 +312,24 @@ describe('PROFILES', () => {
       ([, part]) => part.text !== undefined,
     )
     expect(withText.map(([profileId, part]) => `${profileId}/${part.id}`)).toEqual(['cool/text'])
-    expect(withText[0][1].text).toEqual({
+    const { motion, ...numbers } = withText[0][1].text as NonNullable<PartSpec['text']>
+    expect(numbers).toEqual({
       container: { layer: 'COOL', path: ['1', 'Group 1', 'Group 1'] },
       original: 'COOL',
       box: { x0: 78.35, y0: 198.78, x1: 433.65, y1: 313.22 },
       pop: { first: 124, step: 6 },
       maxLength: 6,
     })
+    // One homography per path keyframe (9), normalised to h[8] = 1; the values
+    // are pinned against the sample's letters in text.test.ts.
+    for (const matrices of [motion.face, motion.shadow]) {
+      expect(matrices).toHaveLength(9)
+      for (const h of matrices) {
+        expect(h).toHaveLength(9)
+        expect(h.every(Number.isFinite)).toBe(true)
+        expect(h[8]).toBe(1)
+      }
+    }
   })
 
   it('matches no profile on an unknown sticker', () => {
