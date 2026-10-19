@@ -1,3 +1,4 @@
+import { fingerprint } from './atoms'
 import { readColorSites, sitesWithin } from './colors'
 import { isNeutral } from './families'
 import type { Mat3 } from './homography'
@@ -6,7 +7,8 @@ import { PROFILES } from './profiles'
 import type { Lottie } from './tgs'
 
 // Sticker parts. A profile is a hand-written description of one known sticker
-// (matched by the root `nm`): which layers and groups make up each named part
+// (matched by the root `nm` and/or the structural `fingerprint` of atoms.ts —
+// `nm` alone is not unique across stickers): which layers and groups make up each named part
 // (iris, pupil, ...), which colour is the part's key, and, for a part holding an
 // inscription, where its letters are. Everything is resolved against the file
 // at open time; if any piece has gone missing (a renamed layer, a re-exported
@@ -16,6 +18,7 @@ import type { Lottie } from './tgs'
 export interface Selector {
   asset?: string // id of an `assets[]` entry: search its layers; absent = root `layers`
   layer: string // layer `nm`; '*' = any layer; 'Ding_*' (trailing *) = name prefix
+  ind?: number // and the layer's `ind` is this (layer names repeat; `ind` is unique per comp)
   path?: string[] // groups inside the layer's `shapes`, outermost first: a name (all `gr` with that nm),
   // '*' (every `gr`), '#n' (the n-th `gr` item, 0-based, counting `gr` items only)
 }
@@ -41,7 +44,7 @@ export interface PartSpec {
 
 export interface StickerProfile {
   id: string
-  match: { nm: string }
+  match: { nm?: string; fingerprint?: string } // every given field must equal the file's; at least one
   parts: PartSpec[]
 }
 
@@ -92,7 +95,8 @@ export function resolveSelector(anim: Lottie, selector: Selector): object[] {
     const asset = (anim.assets ?? []).find((item) => isObject(item) && item.id === selector.asset)
     layers = isObject(asset) && Array.isArray(asset.layers) ? asset.layers : []
   }
-  const matched = layers.filter((layer): layer is Json => isObject(layer) && layerNameMatches(selector.layer, layer.nm))
+  const matched = layers.filter((layer): layer is Json =>
+    isObject(layer) && layerNameMatches(selector.layer, layer.nm) && (selector.ind === undefined || layer.ind === selector.ind))
   if (!selector.path || selector.path.length === 0) return matched
 
   // Item lists still to be searched: the shapes of every matched layer, then
@@ -107,11 +111,15 @@ export function resolveSelector(anim: Lottie, selector: Selector): object[] {
 }
 
 // Resolves every part of `profile` against `anim`. null when the profile does
-// not describe this animation: the root name differs, a selector (of a part, its
+// not describe this animation: the root name or the fingerprint differs (or the
+// profile names neither), a selector (of a part, its
 // key or its text container) matches nothing, a part has no colour sites, `nth`
 // is out of range, the key site lies outside its part, or two parts share a site.
 export function resolveParts(anim: Lottie, profile: StickerProfile): Part[] | null {
-  if (anim.nm !== profile.match.nm) return null
+  const { nm, fingerprint: print } = profile.match
+  if (nm === undefined && print === undefined) return null
+  if (nm !== undefined && anim.nm !== nm) return null
+  if (print !== undefined && fingerprint(anim) !== print) return null
   const sites = readColorSites(anim)
   const taken = new Set<number>()
   const parts: Part[] = []

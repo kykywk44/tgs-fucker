@@ -116,6 +116,10 @@ function binarizeOpacity(prop: unknown): void {
     return
   }
   const keyframes = prop.k.filter(isObject)
+  // Before the first keyframe the property holds that keyframe's own value; once
+  // its segment value is widened below, a hold keyframe just before it keeps that.
+  const lead = keyframes[0]
+  const before = lead && lead.s !== undefined && typeof lead.t === 'number' ? onOff(first(lead.s)) : null
   keyframes.forEach((keyframe, i) => {
     if (keyframe.s === undefined) return
     const next = keyframe.e ?? keyframes[i + 1]?.s
@@ -125,6 +129,9 @@ function binarizeOpacity(prop: unknown): void {
     if (keyframe.e !== undefined) keyframe.e = [value]
     keyframe.h = 1
   })
+  if (before !== null && first(lead.s) !== before) {
+    prop.k = [{ t: (lead.t as number) - 0.01, s: [before], h: 1 }, ...prop.k]
+  }
 }
 
 // A copy of `anim` painted by atom (see above). Atom ids are those of findAtoms.

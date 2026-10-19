@@ -970,6 +970,7 @@ The user did not like parts guessed from file structure. New approach: parts are
 - Player pick: the solid map first, the translucent map where nothing solid is drawn.
 
 ### Task 10e: Profiles from the approved list
+Done 2026-10-19: `match.fingerprint` + `Selector.ind` in `parts.ts`; `scripts/parts-sheet.mjs` (parts highlighted, leftovers, keys; `--profile` to try an unregistered one); profiles for all 17 samples in `src/core/profiles/` (14 new, by fingerprint), each checked on its parts sheet; test: every sample resolves to its profile. ID map fix: a fade-in stays hidden before its first keyframe. EvilEye: the eyeball's red tint is a colour animation of the same shapes, so it stays in «Белок» (cannot be split into «Красная фаза»).
 - After the user edits `docs/parts-proposals.md`: profiles for every sticker (existing three extended), written as data, matched by `fingerprint` (root `nm` is duplicated / missing).
 - A parts sheet per sticker (each part highlighted on 3 frames) for the user's approval.
 - The part list is agreed (`docs/parts-proposals.md`, 2026-10-19). Next operation after colour: **text replacement in NEW** (like COOL); hide and move/scale later.

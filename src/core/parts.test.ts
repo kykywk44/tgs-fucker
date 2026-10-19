@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import minimal from './__fixtures__/minimal.json'
 import partsFixture from './__fixtures__/parts.json'
+import { fingerprint } from './atoms'
 import { readColorSites, sitesWithin } from './colors'
 import { isNeutral, recolorFamily } from './families'
 import { hexToOklch } from './oklch'
@@ -160,6 +161,23 @@ function profileWith(...parts: PartSpec[]): StickerProfile {
   return { id: 'fixture', match: { nm: 'Fixture' }, parts }
 }
 
+describe('profile matching by fingerprint', () => {
+  it('matches by fingerprint alone, by nm and fingerprint together, and never with an empty match', () => {
+    const byPrint = { ...PROFILE, match: { fingerprint: fingerprint(fixture) } }
+    expect(resolveParts(fixture, byPrint)).not.toBeNull()
+    expect(resolveParts(fixture, { ...PROFILE, match: { nm: 'Fixture', fingerprint: fingerprint(fixture) } })).not.toBeNull()
+    expect(resolveParts(fixture, { ...PROFILE, match: { fingerprint: '00000000' } })).toBeNull()
+    expect(resolveParts(fixture, { ...PROFILE, match: { nm: 'Other', fingerprint: fingerprint(fixture) } })).toBeNull()
+    expect(resolveParts(fixture, { ...PROFILE, match: {} })).toBeNull()
+  })
+
+  it('a selector with `ind` picks one of several layers sharing a name', () => {
+    expectSame(resolveSelector(fixture, { layer: 'pre', ind: 2 }), [rootLayers[1]])
+    expectSame(resolveSelector(fixture, { layer: '*', ind: 3 }), [body])
+    expect(resolveSelector(fixture, { layer: 'Body', ind: 1 })).toEqual([])
+  })
+})
+
 describe('resolveParts', () => {
   it('resolves sites, key, neutral and text per part, in profile order', () => {
     const parts = resolveParts(fixture, PROFILE) as Part[]
@@ -295,9 +313,11 @@ describe('Part as a recolour target', () => {
 // --- Profiles ----------------------------------------------------------------
 
 describe('PROFILES', () => {
-  it('lists the Eye, Heart and Cool profiles, in that order', () => {
-    expect(PROFILES.map((profile) => profile.id)).toEqual(['eye', 'heart', 'cool'])
-    expect(PROFILES.map((profile) => profile.match.nm)).toEqual(['Eye', 'HEART RED', 'COOL_emoji_🆒'])
+  it('starts with Eye, Heart and Cool (by name); every other profile matches by fingerprint; ids are unique', () => {
+    expect(PROFILES.slice(0, 3).map((profile) => profile.id)).toEqual(['eye', 'heart', 'cool'])
+    expect(PROFILES.slice(0, 3).map((profile) => profile.match.nm)).toEqual(['Eye', 'HEART RED', 'COOL_emoji_🆒'])
+    for (const profile of PROFILES.slice(3)) expect(profile.match.fingerprint, profile.id).toMatch(/^[0-9a-f]{8}$/)
+    expect(new Set(PROFILES.map((profile) => profile.id)).size).toBe(PROFILES.length)
   })
 
   it('has unique part ids inside a profile', () => {
@@ -361,7 +381,7 @@ const EXPECTED: Expected[] = [
       ['iris', 'Радужка', '#9c620d'],
       ['pupil', 'Зрачок', '#200302'],
       ['sclera', 'Белок', '#fcfcfc'],
-      ['lids', 'Веки', '#534f55'],
+      ['lids', 'Веко', '#534f55'],
     ],
   },
   { file: 'HeartSticker.tgs', profile: 'heart', parts: [['heart', 'Сердце', '#fe1512']] },
@@ -480,5 +500,26 @@ describe.skipIf(!existsSync(join(SAMPLES_DIR, 'CoolSticker.tgs')))('CoolSticker.
     expect(container).toBeDefined()
     const letters = (container.it as Json[]).filter((item) => item.ty === 'gr')
     expect(letters).toHaveLength((text.text as NonNullable<Part['text']>).original.length)
+  })
+})
+
+// Every sample the profiles know resolves to its own profile, by name or by fingerprint.
+const PROFILED: [string, string][] = [
+  ['AnimatedSticker.tgs', 'eye'], ['AstralShardSticker.tgs', 'astral'], ['BowSticker.tgs', 'bow'],
+  ['CapSticker.tgs', 'cap'], ['CaseSticker.tgs', 'case'], ['CoolSticker.tgs', 'cool'],
+  ['DancerSticker.tgs', 'dancer'], ['DiarySticker.tgs', 'diary'], ['EvilEyeSticker.tgs', 'evil-eye'],
+  ['HeartSticker.tgs', 'heart'], ['HugsSticker.tgs', 'hugs'], ['LaptopGuySticker.tgs', 'laptop'],
+  ['LipsSticker.tgs', 'lips'], ['NewSticker.tgs', 'new'], ['NewspaperSticker.tgs', 'newspaper'],
+  ['SuitcaseSticker.tgs', 'suitcase'], ['TargetSticker.tgs', 'target'],
+]
+
+describe('profiles on samples', () => {
+  it.each(PROFILED)('%s resolves to «%s»', async (file, id) => {
+    const path = join(SAMPLES_DIR, file)
+    if (!existsSync(path)) return // samples are untracked
+    const anim = await readTgs(new Uint8Array(readFileSync(path)))
+    const match = matchProfile(anim)
+    expect(match?.profile.id).toBe(id)
+    expect(match!.parts.length).toBe(PROFILES.find((profile) => profile.id === id)!.parts.length)
   })
 })

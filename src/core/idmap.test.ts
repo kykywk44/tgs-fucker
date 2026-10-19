@@ -98,8 +98,16 @@ describe('idColorize', () => {
     const faded = idColorize(withFade)
     expect(new Set(opacities(faded))).toEqual(new Set([0, 100]))
     const keyframes = (faded.layers[1] as { ks: { o: { k: { s: number[]; h: number }[] } } }).ks.o.k
-    expect(keyframes.map((kf) => kf.s[0])).toEqual([100, 100, 0, 0]) // a segment with a visible end is on
+    // a segment with a visible end is on; a hold keyframe keeps the start hidden before t 0
+    expect(keyframes.map((kf) => kf.s[0])).toEqual([0, 100, 100, 0, 0])
     expect(keyframes.every((kf) => kf.h === 1)).toBe(true)
+  })
+
+  it('keeps a fade-in hidden before its first keyframe', () => {
+    const withFade = structuredClone(fixture)
+    ;(withFade.layers[1] as { ks: { o: unknown } }).ks.o = { a: 1, k: [{ t: 20, s: [0] }, { t: 30, s: [100] }] }
+    const keyframes = (idColorize(withFade).layers[1] as { ks: { o: { k: { t: number; s: number[] }[] } } }).ks.o.k
+    expect(keyframes.map((kf) => [kf.t, kf.s[0]])).toEqual([[19.99, 0], [20, 100], [30, 100]])
   })
 
   it('resets blend modes and whitens a luma matte source', () => {

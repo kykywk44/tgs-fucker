@@ -25,7 +25,7 @@ export const EYE: StickerProfile = {
     },
     {
       id: 'lids',
-      name: 'Веки',
+      name: 'Веко',
       select: [{ layer: 'Group 8' }, { layer: 'Group 9' }, { layer: 'Слой 9' }],
       key: { select: { layer: 'Group 8' }, nth: 3 }, // #534f55
     },
