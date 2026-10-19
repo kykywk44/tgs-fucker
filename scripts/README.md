@@ -20,3 +20,5 @@ Checks `.tgs` files with python-lottie's own Telegram checker (`tgs_check.py`, l
 `node scripts/sticker-sheet.mjs [files...]` (default `samples/*.tgs`) renders PNG sheets into `exports/sheets/`: six frames, numbered solid atoms, numbered translucent atoms (effects), and an atom table — the material for marking up a sticker's parts.
 
 `node scripts/parts-sheet.mjs [--profile src/core/profiles/x.ts] [files...]` renders `exports/sheets/<name>.parts.png` for stickers with a profile: each part highlighted (magenta outline) on three frames, plus a row with visible atoms in no part; prints atoms, key colour and coverage per part, or the fingerprint of a sticker without a profile.
+
+`node scripts/text-motion.mjs <sticker.tgs> '<container selector JSON>'` measures an inscription's own motion (per-keyframe homographies, residual, face box at keyframe 0) and prints the TypeScript for a profile's TextSpec.

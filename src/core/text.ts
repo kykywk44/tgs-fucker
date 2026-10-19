@@ -1,14 +1,17 @@
 import { readColorSites, sitesWithin } from './colors'
 import { layoutLine, type GlyphContour, type GlyphSet } from './glyphs'
-import { applyHomography, type Mat3 } from './homography'
-import { resolveSelector, type TextSpec } from './parts'
+import { applyHomography, fitHomography, type Mat3 } from './homography'
+import { resolveSelector, type Selector, type TextSpec } from './parts'
 import type { Lottie } from './tgs'
 
 // The editable inscription of a sticker (D18). Its letters are shapes, not a
 // text layer (text layers are forbidden in .tgs): a container group holds one
 // group per letter in reverse reading order (the first item of `it` draws on
-// top), each letter being [face group, shadow group, tr]. The face and shadow
-// paths are animated: at every path keyframe one homography maps all faces at
+// top), each letter being [face group, shadow group, tr]; the container may
+// also hold other groups after the letters (NEW: the button face), which are
+// kept as they are. A face or shadow group holds its paths, fill and tr, or
+// (NEW) one inner group that does, placed by a static translation. The face
+// and shadow paths are animated: at every path keyframe one homography maps all faces at
 // keyframe 0 (container coordinates) onto that keyframe (the box turning in
 // 3D), and another maps them onto the shadows. Those homographies were
 // measured once from the original letters and are stored in the profile
@@ -111,7 +114,7 @@ export function readText(anim: Lottie, spec: TextSpec): string {
   const container = findContainer(anim, spec)
   if (!container) return spec.original
   const chars: string[] = []
-  for (const group of groupsOf(container)) {
+  for (const group of groupsOf(container).filter(isInscriptionItem)) {
     const name = group.nm
     if (typeof name !== 'string' || !name.startsWith(PREFIX)) return spec.original
     const char = name.slice(PREFIX.length)
@@ -123,14 +126,46 @@ export function readText(anim: Lottie, spec: TextSpec): string {
 
 // --- Reading the template letters -----------------------------------------------
 
-// A face or shadow group and the keyframes of each of its paths.
-interface PartRef { group: Json; paths: Json[][] }
+// A face or shadow group, the group holding its paths (itself, or its one
+// inner group), the keyframes of each path, and the static translation from
+// the paths' coordinates to the container's.
+interface PartRef { group: Json; source: Json; paths: Json[][]; offset: Pt }
 
 interface LetterRef { group: Json; face: PartRef; shadow: PartRef; tr: Json }
 
+function staticPair(prop: unknown): Pt | null {
+  if (!isObject(prop) || prop.a === 1 || !Array.isArray(prop.k)) return null
+  const [x, y] = prop.k as unknown[]
+  return typeof x === 'number' && typeof y === 'number' ? [x, y] : null
+}
+
+// The translation of a static, unscaled, unrotated tr (p − a), or null.
+function translationOf(tr: Json): Pt | null {
+  const p = staticPair(tr.p)
+  const a = staticPair(tr.a)
+  const s = staticPair(tr.s)
+  const r = asObject(tr.r)
+  if (!p || !a || (s && (s[0] !== 100 || s[1] !== 100))) return null
+  if (r.k !== undefined && r.k !== 0) return null
+  return [p[0] - a[0], p[1] - a[1]]
+}
+
 function readPart(group: Json, what: string): PartRef {
-  if (!itemsOf(group).some(isTransform)) throw new Error(`replaceText: ${what} has no transform`)
-  const paths = itemsOf(group)
+  const own = itemsOf(group).find(isTransform)
+  if (!own) throw new Error(`replaceText: ${what} has no transform`)
+  let source = group
+  // Only measureTextMotion reads the offset; replaceText writes paths in container
+  // coordinates under a p = a tr, so a non-translation tr here only matters there.
+  let offset: Pt = translationOf(own) ?? [0, 0]
+  const inner = groupsOf(group)
+  if (!itemsOf(group).some(isPath) && inner.length === 1) {
+    const tr = itemsOf(inner[0]).find(isTransform)
+    const shift = tr ? translationOf(tr) : null
+    if (!shift) throw new Error(`replaceText: the inner group of ${what} must be placed by a static translation`)
+    source = inner[0]
+    offset = add(offset, shift)
+  }
+  const paths = itemsOf(source)
     .filter(isPath)
     .map((path) => {
       const ks = path.ks
@@ -139,7 +174,7 @@ function readPart(group: Json, what: string): PartRef {
       }
       return ks.k
     })
-  return { group, paths }
+  return { group, source, paths, offset }
 }
 
 function readLetter(group: Json): LetterRef {
@@ -216,18 +251,19 @@ function mapContour(contour: GlyphContour, h: Mat3): Json {
 }
 
 // A face or shadow group for `contours`: the template group's fields, one path
-// per contour animated through `maps`, the template's other items (its fill),
-// its tr moved to p = a = [0, 0] (paths are written in container coordinates).
-// Also returns the vertices written at keyframe 0.
+// per contour animated through `maps`, the other items of the group holding
+// the template's paths (its fill), the template group's tr moved to
+// p = a = [0, 0] (paths are written in container coordinates, so a nested
+// template comes out flat). Also returns the vertices written at keyframe 0.
 function buildPart(
-  template: Json,
+  template: PartRef,
   contours: GlyphContour[],
   motion: Motion,
   maps: KeyMaps[],
 ): { group: Json; vertices: Pt[] } {
-  const items = itemsOf(template)
+  const items = itemsOf(template.source)
   const templatePath = items.find(isPath) as Json
-  const templateTr = items.find(isTransform) as Json
+  const templateTr = itemsOf(template.group).find(isTransform) as Json
   const vertices: Pt[] = []
   const paths = contours.map((contour) => {
     const k = motion.keyframes.map((kf, n) => {
@@ -248,7 +284,7 @@ function buildPart(
     p: withFields(asObject(templateTr.p), { a: 0, k: [0, 0] }),
     a: withFields(asObject(templateTr.a), { a: 0, k: [0, 0] }),
   })
-  return { group: withFields(template, { it: [...paths, ...others, tr] }), vertices }
+  return { group: withFields(template.group, { it: [...paths, ...others, tr] }), vertices }
 }
 
 // The template letter's tr with p = a = `centre` and its scale keyframes
@@ -271,8 +307,8 @@ function letterTransform(template: Json, centre: Pt, start: number): Json {
 }
 
 function buildLetter(template: LetterRef, char: string, contours: GlyphContour[], motion: Motion, start: number): Json {
-  const face = buildPart(template.face.group, contours, motion, motion.face)
-  const shadow = buildPart(template.shadow.group, contours, motion, motion.shadow)
+  const face = buildPart(template.face, contours, motion, motion.face)
+  const shadow = buildPart(template.shadow, contours, motion, motion.shadow)
   const vertices = [...face.vertices, ...shadow.vertices]
   let centre: Pt = [0, 0]
   if (vertices.length > 0) {
@@ -375,4 +411,68 @@ export function replaceText(
     throw new Error('replaceText: the new letters hold colours the template does not')
   }
   return { anim: result, siteOrigin }
+}
+
+// --- Measuring a sticker's own motion (profile authoring) -------------------------
+
+/**
+ * Fits the motion a TextSpec stores from the sticker's own letters: for every
+ * path keyframe k, the homography mapping all face vertices and absolute
+ * handles at keyframe 0 (container coordinates) onto the faces, and onto the
+ * shadows, at keyframe k. Also returns the largest residual (px) and the box
+ * of the face vertices at keyframe 0. Throws like replaceText on letters it
+ * cannot read, and when the letters' paths differ in keyframe count.
+ */
+export function measureTextMotion(
+  anim: Lottie,
+  container: Selector,
+): { face: Mat3[]; shadow: Mat3[]; maxError: number; box: { x0: number; y0: number; x1: number; y1: number } } {
+  const found = resolveSelector(anim, container)
+  if (found.length !== 1 || !isGroup(found[0])) throw new Error('measureTextMotion: the container must resolve to exactly one group')
+  const letters = itemsOf(found[0]).filter(isLetterGroup).map(readLetter)
+  if (letters.length === 0) throw new Error('measureTextMotion: the container has no letters')
+  const count = letters[0].face.paths[0]?.length ?? 0
+  const all = letters.flatMap((letter) => [...letter.face.paths, ...letter.shadow.paths])
+  if (count === 0 || all.some((path) => path.length !== count)) {
+    throw new Error('measureTextMotion: every letter path must have the same number of keyframes')
+  }
+
+  // Vertices and absolute handles of `part` at keyframe k, container coordinates.
+  const pointsAt = (part: PartRef, k: number): Pt[] =>
+    part.paths.flatMap((path) => {
+      const value = path[k].s ?? path[k - 1]?.e
+      const shape = asObject(Array.isArray(value) ? value[0] : value)
+      const v = (shape.v ?? []) as Pt[]
+      const i = (shape.i ?? []) as Pt[]
+      const o = (shape.o ?? []) as Pt[]
+      const at = (p: Pt): Pt => add(p, part.offset)
+      return v.flatMap((p, n) => [at(p), at(add(p, i[n] ?? [0, 0])), at(add(p, o[n] ?? [0, 0]))])
+    })
+  const faces = (k: number): Pt[] => letters.flatMap((letter) => pointsAt(letter.face, k))
+  const shadows = (k: number): Pt[] => letters.flatMap((letter) => pointsAt(letter.shadow, k))
+
+  const src = faces(0)
+  let maxError = 0
+  const fit = (dst: Pt[]): Mat3 => {
+    const h = fitHomography(src, dst)
+    src.forEach((p, n) => {
+      const [x, y] = applyHomography(h, p)
+      maxError = Math.max(maxError, Math.hypot(x - dst[n][0], y - dst[n][1]))
+    })
+    return h
+  }
+  const face = range(0, count).map((k) => fit(faces(k)))
+  const shadow = range(0, count).map((k) => fit(shadows(k)))
+
+  const vertices = letters.flatMap((letter) =>
+    letter.face.paths.flatMap((path) => {
+      const value = path[0].s
+      const shape = asObject(Array.isArray(value) ? value[0] : value)
+      return ((shape.v ?? []) as Pt[]).map((p) => add(p, letter.face.offset))
+    }),
+  )
+  const xs = vertices.map((p) => p[0])
+  const ys = vertices.map((p) => p[1])
+  const box = { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }
+  return { face, shadow, maxError, box }
 }

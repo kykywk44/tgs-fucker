@@ -171,6 +171,16 @@ describe('profile matching by fingerprint', () => {
     expect(resolveParts(fixture, { ...PROFILE, match: {} })).toBeNull()
   })
 
+  it("'@letter' picks the groups holding two or more groups, and groups an inscription edit named txt:", () => {
+    // Body > Outer holds Inner, Inner, Other: Outer is the only group with ≥ 2 groups inside.
+    expectSame(resolveSelector(fixture, { layer: 'Body', path: ['@letter'] }), [outer])
+    expect(resolveSelector(fixture, { layer: 'Body', path: ['Outer', '@letter'] })).toEqual([])
+    const edited = structuredClone(fixture)
+    const editedOuter = ((edited.layers as Json[])[2].shapes as Json[])[0]
+    ;(editedOuter.it as Json[])[1].nm = 'txt: '
+    expectSame(resolveSelector(edited, { layer: 'Body', path: ['Outer', '@letter'] }), [(editedOuter.it as Json[])[1]])
+  })
+
   it('a selector with `ind` picks one of several layers sharing a name', () => {
     expectSame(resolveSelector(fixture, { layer: 'pre', ind: 2 }), [rootLayers[1]])
     expectSame(resolveSelector(fixture, { layer: '*', ind: 3 }), [body])
@@ -313,10 +323,14 @@ describe('Part as a recolour target', () => {
 // --- Profiles ----------------------------------------------------------------
 
 describe('PROFILES', () => {
-  it('starts with Eye, Heart and Cool (by name); every other profile matches by fingerprint; ids are unique', () => {
+  it('starts with Eye, Heart and Cool (by name); the others match by fingerprint, or by name when their inscription is editable; ids are unique', () => {
     expect(PROFILES.slice(0, 3).map((profile) => profile.id)).toEqual(['eye', 'heart', 'cool'])
     expect(PROFILES.slice(0, 3).map((profile) => profile.match.nm)).toEqual(['Eye', 'HEART RED', 'COOL_emoji_🆒'])
-    for (const profile of PROFILES.slice(3)) expect(profile.match.fingerprint, profile.id).toMatch(/^[0-9a-f]{8}$/)
+    // NEW has an editable inscription, which changes the fingerprint: it matches by name like Cool.
+    for (const profile of PROFILES.slice(3)) {
+      if (profile.parts.some((part) => part.text)) expect(profile.match.nm, profile.id).toBeTruthy()
+      else expect(profile.match.fingerprint, profile.id).toMatch(/^[0-9a-f]{8}$/)
+    }
     expect(new Set(PROFILES.map((profile) => profile.id)).size).toBe(PROFILES.length)
   })
 
@@ -327,11 +341,29 @@ describe('PROFILES', () => {
     }
   })
 
-  it('has a text part only on Cool, with the agreed numbers', () => {
+  it('NEW has a text part with its measured numbers', () => {
+    const part = PROFILES.find((profile) => profile.id === 'new')!.parts.find((p) => p.id === 'text')!
+    const { motion, ...numbers } = part.text as NonNullable<PartSpec['text']>
+    expect(numbers).toEqual({
+      container: { layer: 'NEW', path: ['Group 1'] },
+      original: 'NEW',
+      box: { x0: 366.38, y0: 458.84, x1: 657.62, y1: 571.41 },
+      pop: { first: 118, step: 6 },
+      maxLength: 6,
+    })
+    // 6 path keyframes; edge-on and squashed keyframes have h[8] near 0, so no
+    // normalisation is pinned here (text.test.ts checks them against the letters).
+    for (const matrices of [motion.face, motion.shadow]) {
+      expect(matrices).toHaveLength(6)
+      for (const h of matrices) expect(h.length === 9 && h.every(Number.isFinite)).toBe(true)
+    }
+  })
+
+  it('has text parts on Cool and NEW only, Cool with the agreed numbers', () => {
     const withText = PROFILES.flatMap((profile) => profile.parts.map((part) => [profile.id, part] as const)).filter(
       ([, part]) => part.text !== undefined,
     )
-    expect(withText.map(([profileId, part]) => `${profileId}/${part.id}`)).toEqual(['cool/text'])
+    expect(withText.map(([profileId, part]) => `${profileId}/${part.id}`)).toEqual(['cool/text', 'new/text'])
     const { motion, ...numbers } = withText[0][1].text as NonNullable<PartSpec['text']>
     expect(numbers).toEqual({
       container: { layer: 'COOL', path: ['1', 'Group 1', 'Group 1'] },

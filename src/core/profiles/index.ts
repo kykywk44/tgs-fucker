@@ -17,8 +17,9 @@ import { NEWSPAPER } from './newspaper'
 import { SUITCASE } from './suitcase'
 import { TARGET } from './target'
 
-// Known stickers, tried in this order by matchProfile. The first three match by
-// root `nm`; the rest by fingerprint (root names repeat or are missing).
+// Known stickers, tried in this order by matchProfile. Eye, Heart, Cool and NEW
+// match by root `nm` (an inscription edit changes the fingerprint); the rest by
+// fingerprint (root names repeat or are missing).
 export const PROFILES: readonly StickerProfile[] = [
   EYE, HEART, COOL, CAP, ASTRAL, BOW, CASE, DANCER, DIARY, EVIL_EYE, HUGS, LAPTOP, LIPS, NEW, NEWSPAPER, SUITCASE, TARGET,
 ]

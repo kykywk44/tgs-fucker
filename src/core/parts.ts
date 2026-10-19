@@ -20,7 +20,9 @@ export interface Selector {
   layer: string // layer `nm`; '*' = any layer; 'Ding_*' (trailing *) = name prefix
   ind?: number // and the layer's `ind` is this (layer names repeat; `ind` is unique per comp)
   path?: string[] // groups inside the layer's `shapes`, outermost first: a name (all `gr` with that nm),
-  // '*' (every `gr`), '#n' (the n-th `gr` item, 0-based, counting `gr` items only)
+  // '*' (every `gr`), '#n' (the n-th `gr` item, 0-based, counting `gr` items only), '@letter'
+  // (every inscription letter: a `gr` holding at least two `gr` — face and shadow — or one an
+  // inscription edit wrote, named `txt:<char>`; selects the letters before and after an edit)
 }
 
 export interface TextSpec {
@@ -75,6 +77,11 @@ const INDEX_STEP = /^#(\d+)$/
 function pickGroups(items: unknown[], step: string): Json[] {
   const groups = items.filter((item): item is Json => isObject(item) && item.ty === 'gr')
   if (step === '*') return groups
+  if (step === '@letter') {
+    return groups.filter((group) =>
+      (Array.isArray(group.it) && group.it.filter((item) => isObject(item) && item.ty === 'gr').length >= 2) ||
+      (typeof group.nm === 'string' && group.nm.startsWith('txt:')))
+  }
   const index = INDEX_STEP.exec(step)
   if (index) {
     const group = groups[Number(index[1])]

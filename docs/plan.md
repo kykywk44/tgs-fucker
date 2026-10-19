@@ -975,3 +975,9 @@ Done 2026-10-19: `match.fingerprint` + `Selector.ind` in `parts.ts`; `scripts/pa
 - A parts sheet per sticker (each part highlighted on 3 frames) for the user's approval.
 - The part list is agreed (`docs/parts-proposals.md`, 2026-10-19). Next operation after colour: **text replacement in NEW** (like COOL); hide and move/scale later.
 - LipsSticker: the mouth interior is a dependent colour that follows the tongue (keeps its lightness offset), not a part.
+
+### Task 10f: Inscription replacement in NEW (done 2026-10-19)
+- `text.ts`: a letter's face/shadow may wrap one inner group placed by a static translation (NEW); the container may hold other groups after the letters (NEW's button face) — they are kept, and `readText` only looks at inscription items; replaced letters are written flat. `measureTextMotion(anim, container)` fits the per-keyframe homographies + face box from a sticker's own letters (residual: COOL 0.108 px, NEW 0.0016 px); `scripts/text-motion.mjs` prints them for a profile.
+- `parts.ts`: path step `'@letter'` (groups with ≥ 2 groups, or named `txt:`) so a text part's selectors hold before and after an edit.
+- NEW profile: text part with spec (container `NEW › Group 1`, 6 keyframes, box from the faces, pop 118/6, max 6 characters); matched by root `nm`, because an inscription edit changes the fingerprint.
+- Verified: NEW → «ПРИВЕТ» turns, squashes and pops like the original; 20 KB; `scripts/check.sh` passes; in the editor the «Текст» field replaces it and the parts stay.

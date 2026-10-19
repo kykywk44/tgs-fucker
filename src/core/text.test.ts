@@ -10,7 +10,7 @@ import glyphData from './glyphs/roboto-900.json'
 import type { GlyphSet } from './glyphs'
 import { applyHomography, fitHomography, type Mat3 } from './homography'
 import { matchProfile, resolveSelector, type Part, type TextSpec } from './parts'
-import { readText, replaceText, validateText } from './text'
+import { measureTextMotion, readText, replaceText, validateText } from './text'
 import { readTgs, writeTgs, type Lottie } from './tgs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -645,6 +645,81 @@ describe('replaceText', () => {
   })
 })
 
+// --- Nested letters in a mixed container (the NEW sticker's layout) ---------------
+
+// The synthetic sticker rewritten the NEW way: every face / shadow group holds one
+// inner group with the paths, the fill and the original tr (a pure translation),
+// under an identity tr; the container gets a non-letter group after the letters.
+function nestedMixed(): Lottie {
+  const anim = synthetic()
+  const letters = container(anim, SPEC)
+  for (const group of groupsOf(letters)) {
+    group.it = (group.it as Json[]).map((item) =>
+      item.ty === 'gr'
+        ? { ...item, it: [{ ty: 'gr', it: item.it, nm: `${item.nm} inner`, bm: 0, hd: false }, transform([5, 7], [5, 7])] }
+        : item,
+    )
+  }
+  const items = letters.it as Json[]
+  items.splice(items.length - 1, 0, { ty: 'gr', it: [fill('#123456'), transform([0, 0], [0, 0])], nm: 'Button face', bm: 0, hd: false })
+  return anim
+}
+
+describe('measureTextMotion', () => {
+  it('recovers the stored motion and the face box of flat letters', () => {
+    const { face, shadow, maxError, box } = measureTextMotion(synthetic(), SPEC.container)
+    expect(maxError).toBeLessThan(1e-6)
+    for (let k = 0; k < 3; k++) {
+      for (const p of ORIGINAL_POINTS) {
+        expectClose(applyHomography(face[k], p), applyHomography(H[k], p), 1e-6)
+        expectClose(applyHomography(shadow[k], p), applyHomography(G[k], p), 1e-6)
+      }
+    }
+    const vs = [...ONE, ...TWO].flatMap((c) => c.v)
+    expect(box).toEqual({
+      x0: Math.min(...vs.map((p) => p[0])), y0: Math.min(...vs.map((p) => p[1])),
+      x1: Math.max(...vs.map((p) => p[0])), y1: Math.max(...vs.map((p) => p[1])),
+    })
+  })
+
+  it('measures the same motion through nested face / shadow groups', () => {
+    const flat = measureTextMotion(synthetic(), SPEC.container)
+    const nested = measureTextMotion(nestedMixed(), SPEC.container)
+    expect(nested.maxError).toBeLessThan(1e-6)
+    expect(nested.box).toEqual(flat.box)
+    for (let k = 0; k < 3; k++) {
+      for (const p of ORIGINAL_POINTS) expectClose(applyHomography(nested.face[k], p), applyHomography(flat.face[k], p), 1e-6)
+    }
+  })
+
+  it('throws on a container that does not resolve or holds no letters', () => {
+    expect(() => measureTextMotion(synthetic(), { layer: 'Text', path: ['Nope'] })).toThrow('exactly one group')
+    expect(() => measureTextMotion(synthetic(), { layer: 'Text', path: ['Before'] })).toThrow('no letters')
+  })
+})
+
+describe('replaceText with nested letters in a mixed container', () => {
+  it("reads 'OK', writes flat letters equal to the flat case, and keeps the other group after them", () => {
+    const anim = nestedMixed()
+    expect(readText(anim, SPEC)).toBe('OK')
+    const nested = replaceText(anim, SPEC, 'HI', SET)
+    const flat = replaceText(synthetic(), SPEC, 'HI', SET)
+    expect(readText(nested.anim, SPEC)).toBe('HI')
+    const names = groupsOf(container(nested.anim, SPEC)).map((group) => group.nm)
+    expect(names).toEqual(['txt:I', 'txt:H', 'Button face'])
+    const letterPaths = (a: Lottie) => letterGroups(a, SPEC).map((g) => groupsOf(g).map((part) => (part.it as Json[]).filter((i) => i.ty === 'sh')))
+    expectClose(letterPaths(nested.anim), letterPaths(flat.anim), 1e-9)
+    expect(nested.siteOrigin).toHaveLength(readColorSites(nested.anim).length)
+  })
+
+  it('a second edit reads its own letters back and still keeps the other group', () => {
+    const once = replaceText(nestedMixed(), SPEC, 'HI', SET).anim
+    const twice = replaceText(once, SPEC, 'A B', SET).anim
+    expect(readText(twice, SPEC)).toBe('A B')
+    expect(groupsOf(container(twice, SPEC)).at(-1)?.nm).toBe('Button face')
+  })
+})
+
 // --- The Cool sample (untracked: skipped when absent) ------------------------------
 
 const COOL_FILE = join(SAMPLES_DIR, 'CoolSticker.tgs')
@@ -801,5 +876,66 @@ describe.skipIf(!existsSync(COOL_FILE))('CoolSticker.tgs inscription', () => {
     }
     console.log(`Cool .tgs bytes: original ${original}, ${Object.entries(sizes).map(([t, n]) => `${t} ${n}`).join(', ')}`)
     for (const [text, size] of Object.entries(sizes)) expect(size, text).toBeLessThanOrEqual(65536)
+  })
+})
+
+// --- The NEW sample (untracked: skipped when absent) -------------------------------
+
+const NEW_FILE = join(SAMPLES_DIR, 'NewSticker.tgs')
+
+describe.skipIf(!existsSync(NEW_FILE))('NewSticker.tgs inscription', () => {
+  let loaded: Promise<Lottie> | null = null
+  const load = (): Promise<Lottie> => (loaded ??= readTgs(new Uint8Array(readFileSync(NEW_FILE))))
+
+  function newSpec(anim: Lottie): TextSpec {
+    const match = matchProfile(anim)
+    expect(match?.profile.id).toBe('new')
+    return ((match?.parts ?? []).find((part) => part.id === 'text') as Part).text as TextSpec
+  }
+
+  it("reads 'NEW', and the stored motion is what the letters measure (< 0.01 px)", async () => {
+    const anim = await load()
+    const spec = newSpec(anim)
+    expect(readText(anim, spec)).toBe('NEW')
+    const measured = measureTextMotion(anim, spec.container)
+    expect(measured.maxError).toBeLessThan(0.01)
+    expect(spec.motion.face).toHaveLength(6)
+    const probe: Pt[] = [[366.38, 458.84], [657.62, 458.84], [512, 515], [657.62, 571.41]]
+    for (let k = 0; k < 6; k++) {
+      for (const p of probe) {
+        expectClose(applyHomography(spec.motion.face[k], p), applyHomography(measured.face[k], p), 0.01)
+        expectClose(applyHomography(spec.motion.shadow[k], p), applyHomography(measured.shadow[k], p), 0.01)
+      }
+    }
+  })
+
+  it("after 'ПРИВЕТ' the profile still matches, the button stays, and Telegram's checks pass", async () => {
+    const input = await load()
+    const spec = newSpec(input)
+    const { anim, siteOrigin } = replaceText(input, spec, 'привет', SET)
+    expect(readText(anim, spec)).toBe('ПРИВЕТ')
+    expect(siteOrigin).toHaveLength(readColorSites(anim).length)
+    const match = matchProfile(anim)
+    expect(match?.profile.id).toBe('new')
+    const parts = match?.parts as Part[]
+    const sites = readColorSites(anim)
+    const text = parts.find((part) => part.id === 'text') as Part
+    expect(sites[text.keySite].hex).toBe('#ffffff')
+    expect(parts.find((part) => part.id === 'button')).toBeDefined()
+    const names = groupsOf(container(anim, spec)).map((group) => group.nm)
+    expect(names).toEqual(['txt:Т', 'txt:Е', 'txt:В', 'txt:И', 'txt:Р', 'txt:П', 'Group 3', 'Group 4', 'Group 5'])
+    const bytes = await writeTgs(anim)
+    expect(telegramChecks(anim, bytes.length).filter((check) => !check.ok)).toEqual([])
+  })
+
+  it("NEW → 'I' → 'HELLO' equals NEW → 'HELLO', and survives export and re-opening", async () => {
+    const input = await load()
+    const spec = newSpec(input)
+    const direct = replaceText(input, spec, 'HELLO', SET)
+    const viaI = replaceText(replaceText(input, spec, 'I', SET).anim, spec, 'HELLO', SET)
+    expectClose(viaI.anim, direct.anim, 0.15)
+    const reopened = await readTgs(await writeTgs(direct.anim))
+    const reopenedSpec = newSpec(reopened)
+    expect(readText(reopened, reopenedSpec)).toBe('HELLO')
   })
 })
