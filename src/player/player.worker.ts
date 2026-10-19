@@ -30,6 +30,11 @@ function post(state: PlayerState): void {
   postMessage(message)
 }
 
+function reply(id: number, atom: number | null): void {
+  const message: FromWorker = { type: 'pick', id, atom }
+  postMessage(message)
+}
+
 // `rgba` is a view into wasm memory: copy it onto the canvas before returning.
 function blit(rgba: Uint8ClampedArray<ArrayBuffer>, width: number, height: number): void {
   if (!canvas || !ctx) return
@@ -88,6 +93,16 @@ function dispatch(target: PreviewPlayer, m: Exclude<ToWorker, { type: 'init' }>)
     case 'resize':
       target.resize(m.size)
       break
+    case 'pick': {
+      let atom: number | null = null
+      try {
+        atom = target.pick(m.x, m.y)
+      } catch {
+        atom = null // a failed pick picks nothing; playback is unaffected
+      }
+      reply(m.id, atom)
+      break
+    }
   }
 }
 
@@ -119,6 +134,13 @@ addEventListener('message', (event: MessageEvent<ToWorker>) => {
   const m = event.data
   if (m.type === 'init') {
     void init(m)
+    return
+  }
+  if (m.type === 'pick') {
+    // No redraw needed. Before the engine is ready the pick waits in the queue like any message.
+    if (player) dispatch(player, m)
+    else if (initError === null) queue.push(m)
+    else reply(m.id, null)
     return
   }
   if (m.type === 'play' || m.type === 'pause' || m.type === 'seek') seq = m.seq

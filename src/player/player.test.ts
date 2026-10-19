@@ -4,7 +4,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
 import colorsFixture from '../core/__fixtures__/colors.json'
-import { replaceColor } from '../core/colors'
+import { findAtoms } from '../core/atoms'
+import { readColorSites, replaceColor } from '../core/colors'
 import type { Lottie } from '../core/tgs'
 import { loadEngine, type Animation, type Engine } from './engine'
 import { PreviewPlayer } from './player'
@@ -322,5 +323,50 @@ describe('PreviewPlayer animation lifecycle', () => {
     expect(player.step(1000)).toBe(false)
     expect(creates()).toBe(0)
     expect(blits).toHaveLength(0)
+  })
+})
+
+describe('PreviewPlayer pick', () => {
+  it('returns null before an animation is built and outside the canvas', () => {
+    const { player } = setup()
+    expect(player.pick(0.5, 0.5)).toBeNull()
+    player.load(RED)
+    expect(player.pick(0.5, 0.5)).toBeNull() // still pending
+    player.step(0)
+    expect(player.pick(-0.1, 0.5)).toBeNull()
+    expect(player.pick(0.5, 1)).toBeNull()
+  })
+
+  it('names the atom drawn at the point: the centre of colors.json is red', () => {
+    const { player } = setup()
+    player.load(RED)
+    player.step(0)
+    const atom = player.pick(0.5, 0.5)
+    expect(atom).not.toBeNull()
+    const sites = readColorSites(colors)
+    expect(findAtoms(colors)[atom!].sites.map((site) => sites[site].hex)).toContain('#ff0000')
+  })
+
+  it('builds the ID map once per animation and again after a new one is swapped in', () => {
+    const { player, creates } = setup()
+    player.load(RED)
+    player.step(0)
+    expect(creates()).toBe(1)
+    const first = player.pick(0.5, 0.5)
+    player.pick(0.25, 0.5)
+    expect(creates()).toBe(3) // one pair of ID maps (solid, translucent) for both picks
+    player.load(BLUE)
+    player.step(16)
+    expect(creates()).toBe(4)
+    expect(player.pick(0.5, 0.5)).toBe(first) // recolouring keeps the atoms
+    expect(creates()).toBe(6)
+  })
+
+  it('picks nothing after destroy', () => {
+    const { player } = setup()
+    player.load(RED)
+    player.step(0)
+    player.destroy()
+    expect(player.pick(0.5, 0.5)).toBeNull()
   })
 })

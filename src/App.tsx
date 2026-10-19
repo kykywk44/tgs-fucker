@@ -9,6 +9,7 @@ import { DropZone, useFilePicker } from '@/ui/DropZone'
 import { useColorSession } from '@/ui/colorSession'
 import { Palette } from '@/ui/Palette'
 import { Parts } from '@/ui/Parts'
+import { fetchSample, SAMPLES, type Sample } from '@/ui/samples'
 import { Toolbar } from '@/ui/Toolbar'
 import { useHistory, useUndoShortcuts } from '@/ui/useHistory'
 
@@ -109,6 +110,17 @@ function App() {
   )
   const picker = useFilePicker(handleFile)
 
+  const handleSample = useCallback(
+    async (sample: Sample) => {
+      try {
+        await handleFile(await fetchSample(sample))
+      } catch (err) {
+        setError(`Не удалось открыть образец: ${errorMessage(err)}`)
+      }
+    },
+    [handleFile],
+  )
+
   // The banner is not dismissible, so a successful edit clears a stale error.
   const handleCommit = useCallback(
     (next: Lottie) => {
@@ -188,6 +200,8 @@ function App() {
         canUndo={history.canUndo}
         canRedo={history.canRedo}
         onOpen={picker.open}
+        samples={SAMPLES}
+        onSample={handleSample}
         onUndo={history.undo}
         onRedo={history.redo}
         exportBlockedReasons={reasons}

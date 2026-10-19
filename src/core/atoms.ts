@@ -32,11 +32,12 @@ function isObject(value: unknown): value is Json {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-interface Located {
+// An atom's objects inside the animation it was located in.
+export interface LocatedAtom {
   at: AtomLocation
-  layer: Json
-  items: unknown[]
-  paints: Json[]
+  layer: Record<string, unknown>
+  items: unknown[] // the shape list itself
+  paints: Record<string, unknown>[] // its direct fl / st / gf / gs items
 }
 
 // Each layers array of `anim` with its asset id (undefined = root), assets first.
@@ -51,9 +52,10 @@ function comps(anim: Lottie): { asset?: string; layers: unknown[] }[] {
   return list
 }
 
-// Every atom with its objects in `anim`, in findAtoms order.
-function locate(anim: Lottie): Located[] {
-  const found: Located[] = []
+// Every atom with its objects in `anim` (the very objects, not copies), in
+// findAtoms order: index = atom id. Used to edit atoms in a copy of `anim`.
+export function locateAtoms(anim: Lottie): LocatedAtom[] {
+  const found: LocatedAtom[] = []
   const visit = (items: unknown[], layer: Json, at: AtomLocation): void => {
     const paints = items.filter((item): item is Json => isObject(item) && typeof item.ty === 'string' && PAINTS.has(item.ty))
     if (paints.length > 0) found.push({ at, layer, items, paints })
@@ -105,7 +107,7 @@ function assetInstances(anim: Lottie): Map<string, number> {
 
 // Every atom of `anim`. Pure: nothing is cloned or changed.
 export function findAtoms(anim: Lottie): Atom[] {
-  const located = locate(anim)
+  const located = locateAtoms(anim)
   const owner = new Map<object, number>()
   located.forEach((atom, id) => { for (const paint of atom.paints) owner.set(paint, id) })
   const sites: number[][] = located.map(() => [])
@@ -199,7 +201,7 @@ function sameFamily(a: Stem | null, b: Stem | null): boolean {
 // Shape kinds (paths with their vertex count), the number of child groups and
 // paint kinds with colours: copies of one element match, different elements of
 // one colour rarely do.
-function signature(located: Located, hexes: string[]): string {
+function signature(located: LocatedAtom, hexes: string[]): string {
   const groups = located.items.filter((item) => isObject(item) && item.ty === 'gr').length
   const shapes = located.items
     .filter((item): item is Json => isObject(item) && typeof item.ty === 'string' && SHAPES.has(item.ty))
@@ -221,7 +223,7 @@ function pathVertexCount(shape: Json): number {
 // the same group path in every other layer of the same comp that is a copy of
 // its layer by name ("Ding_1" ↔ "Ding_14", "Paper" ↔ "Paper 2").
 export function similarAtoms(anim: Lottie, atoms: readonly Atom[], ids: readonly number[]): number[] {
-  const located = locate(anim)
+  const located = locateAtoms(anim)
   const allSites = readColorSites(anim)
   const signatures = located.map((item, id) =>
     signature(item, [...new Set((atoms[id]?.sites ?? []).map((s) => allSites[s].hex))]))

@@ -939,9 +939,38 @@ export function fingerprint(anim: Lottie): string
 
 Tests: fixture cases for each function; samples (skipped when absent): atoms partition the sites, levels grow strictly, hand-profile parts are whole atom sets; Cool: one spark → layer level → similar = exactly «Искры»; fire atoms have `instances` 8.
 
-### Task 10c–10e
-Picking (ID render in `src/core/idmap.ts`, `Animation.render(..., antialias)`, worker `pick`), selection UI (canvas + atom tree, expand, Shift-add, «Выбрать похожие», user profiles by fingerprint) and part operations — specified after 10b review.
+### Task 10c: ID map and picking
+Files: `src/core/atoms.ts` (export `locateAtoms`), `src/core/idmap.ts` (+ test), `src/player/engine.ts` (+ test), `src/player/player.ts` (+ test), `src/player/player.worker.ts`, `src/preview/Preview.tsx`, `scripts/measure-corpus.mjs` (uses `idColorize`, `decodeId`, `loadEngine`).
 
-Notes from the 10b review for these tasks:
-- `idmap.ts`: keep `hd` and binarized `o` when a gradient becomes a solid ID paint; keep keyframe `e`; force `bm` to 0; luma mattes (`tt` 3/4) need special handling (the corpus has only alpha mattes, so 0.00% impure says nothing about them).
-- User profiles: the fingerprint changes after delete/replace operations, so key a profile by the fingerprint of the file as opened, or store parts inside the file — decide in 10d.
+```ts
+export function idColor(id: number): [number, number, number]          // atom k → bytes of k + 1
+export function decodeId(r, g, b, a, atomCount): number | null          // a must be 255
+export function pickAt(rgba, size, x, y, atomCount): number | null      // x, y fractions of the canvas
+export function idColorize(anim: Lottie): Lottie                        // atom-coloured copy
+Animation.render(frame, w, h, antialias = true)
+PreviewPlayer.pick(x, y): number | null                                 // current frame, ID map built lazily
+ToWorker  { type: 'pick'; id; x; y }   FromWorker  { type: 'pick'; id; atom }
+```
+- `idColorize`: opacity 0/100 with hold keyframes (a segment is on when either end is > 0; `e` kept), gradients → solid paints keeping `hd`/`o`, `bm` → 0, luma-matte sources white.
+- The player builds the ID map on the first pick per animation, renders it at 512 without antialiasing and keeps the last frame.
+- Preview: a click on the stage posts `pick`; only the latest reply counts; the result is mirrored in `data-picked-atom` on the stage (−1 = nothing) and passed to optional `onPick`. No visible UI yet.
+
+Verified: worker picks on Cool (frame 128) equal Node's at five points; all samples render with 0 impure pixels on three frames.
+Found: translucent overlays (Cool `Flame_glow_1`) are opaque in the ID map and win clicks over the box under them → 10d: Alt-click cycles through the atoms under the point; consider skipping atoms whose effective opacity is low.
+
+### Samples menu (user request, 2026-10-19)
+Files: `src/ui/samples.ts`, `src/ui/Toolbar.tsx`, `src/App.tsx`. Toolbar «Образцы» (in the fluid group after «Открыть», hidden when `samples/` is empty) lists `samples/*.tgs` (`import.meta.glob`, `?url`); a click fetches the file and opens it like a chosen file; the open one is `aria-current`.
+
+### Change of direction (user, 2026-10-19)
+The user did not like parts guessed from file structure. New approach: parts are marked up **here, with Claude**, per sticker, from how it looks: Claude renders the sticker, proposes a part list, the user corrects it (`docs/parts-proposals.md`), Claude writes the profile and shows the parts highlighted for approval. The editor only knows marked-up stickers (unknown ones keep the palette). Atoms, the ID map and picking stay as Claude's tooling (numbering elements, checking parts) and as the editor's click mechanism.
+
+### Task 10d: Sheets and translucent split (done)
+- `scripts/sticker-sheet.mjs` → `exports/sheets/<name>.frames.png` (6 frames), `.marks.png` (solid atoms numbered on 3 frames), `.effects.png` (translucent atoms), `.atoms.txt`.
+- `idmap.ts`: `translucentAtoms(anim)` (every paint below 95 % opacity or a gradient with an opacity stop below 0.95) and `idColorize(anim, { only: 'solid' | 'translucent' })`. Glass highlights and glows (Cool `blik`, `Flame_glow_*`) no longer cover the body.
+- Player pick: the solid map first, the translucent map where nothing solid is drawn.
+
+### Task 10e: Profiles from the approved list
+- After the user edits `docs/parts-proposals.md`: profiles for every sticker (existing three extended), written as data, matched by `fingerprint` (root `nm` is duplicated / missing).
+- A parts sheet per sticker (each part highlighted on 3 frames) for the user's approval.
+- The part list is agreed (`docs/parts-proposals.md`, 2026-10-19). Next operation after colour: **text replacement in NEW** (like COOL); hide and move/scale later.
+- LipsSticker: the mouth interior is a dependent colour that follows the tongue (keeps its lightness offset), not a part.

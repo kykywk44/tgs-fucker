@@ -78,6 +78,16 @@ describe('engine on colors.json', () => {
     anim.drop()
   })
 
+  it('renders hard edges with antialias off: every pixel fully opaque or fully transparent', () => {
+    const anim = engine.create(JSON.stringify(colors))!
+    const alphas = (data: Uint8ClampedArray) => new Set(Array.from(data.filter((_, i) => i % 4 === 3)))
+    const soft = alphas(anim.render(30, 64, 64)!.slice())
+    const hard = alphas(anim.render(30, 64, 64, false)!.slice())
+    expect([...hard].every((a) => a === 0 || a === 255)).toBe(true)
+    expect(soft.size).toBeGreaterThan(hard.size) // the default really is antialiased
+    anim.drop()
+  })
+
   it('returns null for empty, malformed and empty-object JSON', () => {
     expect(engine.create('')).toBeNull()
     expect(engine.create('{not json')).toBeNull()

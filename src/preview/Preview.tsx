@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Pause, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Slider, type SliderValue } from '@/components/ui/slider'
@@ -7,6 +7,8 @@ import type { FromWorker, ToWorker } from '@/player/player'
 export interface PreviewProps {
   json: string // Lottie JSON string
   totalFrames: number // op - ip
+  // A click on the stage: the atom (findAtoms id of `json`) drawn there, or null.
+  onPick?(atom: number | null): void
 }
 
 const STAGE_PX = 512
@@ -16,7 +18,7 @@ function backingSize(): number {
   return Math.round(STAGE_PX * Math.min(2, window.devicePixelRatio || 1))
 }
 
-export function Preview({ json, totalFrames }: PreviewProps) {
+export function Preview({ json, totalFrames, onPick }: PreviewProps) {
   const [playing, setPlaying] = useState(true) // autoplay is on
   const [frame, setFrame] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +29,12 @@ export function Preview({ json, totalFrames }: PreviewProps) {
   // Bumped before every play / pause / seek. The worker echoes the last seq it saw, and a state
   // carrying an older one is a stale echo that must not overwrite what the user just did.
   const seqRef = useRef(0)
+  // Pick requests in flight; only the reply to the latest click is used.
+  const pickRef = useRef(0)
+  const onPickRef = useRef(onPick)
+  useEffect(() => {
+    onPickRef.current = onPick
+  })
 
   // The worker and its canvas live and die with this component. The canvas is created here
   // rather than in JSX because transferControlToOffscreen works once per canvas, and
@@ -50,7 +58,14 @@ export function Preview({ json, totalFrames }: PreviewProps) {
     workerRef.current = worker
     worker.onmessage = (event: MessageEvent<FromWorker>) => {
       const m = event.data
-      if (m.type !== 'state' || m.seq !== seqRef.current) return
+      if (m.type === 'pick') {
+        if (m.id !== pickRef.current) return
+        // Exposed on the stage for tests and tooling; -1 = nothing there.
+        stage.dataset.pickedAtom = String(m.atom ?? -1)
+        onPickRef.current?.(m.atom)
+        return
+      }
+      if (m.seq !== seqRef.current) return
       setPlaying(m.playing)
       setFrame(m.frame)
       setError(m.error)
@@ -93,6 +108,19 @@ export function Preview({ json, totalFrames }: PreviewProps) {
     worker.postMessage(load)
   }, [json])
 
+  const pick = (event: MouseEvent<HTMLDivElement>) => {
+    const worker = workerRef.current
+    if (!worker) return
+    const box = event.currentTarget.getBoundingClientRect()
+    const message: ToWorker = {
+      type: 'pick',
+      id: ++pickRef.current,
+      x: (event.clientX - box.left) / box.width,
+      y: (event.clientY - box.top) / box.height,
+    }
+    worker.postMessage(message)
+  }
+
   const togglePlay = () => {
     const worker = workerRef.current
     if (!worker) return
@@ -121,6 +149,7 @@ export function Preview({ json, totalFrames }: PreviewProps) {
       {/* 512x512 CSS px stage: the ring is a box-shadow, so the canvas keeps its full 512px. */}
       <div
         ref={stageRef}
+        onClick={pick}
         className="checkerboard mx-auto size-[512px] overflow-hidden rounded-2xl ring-1 ring-border"
       />
       <div className="mx-auto flex w-[512px] items-center gap-3">

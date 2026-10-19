@@ -1,17 +1,21 @@
-import { useRef, type ComponentProps } from 'react'
-import { Download, FolderOpen, Redo2, Undo2 } from 'lucide-react'
+import { useRef, useState, type ComponentProps, type Ref } from 'react'
+import { ChevronDown, Download, FolderOpen, Redo2, Sticker, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip } from '@/components/ui/tooltip'
 import { FluidHoverHighlight } from '@/components/fluid-hover-highlight'
 import { useFluidHover, useRegisterFluidHoverItem, type UseFluidHoverReturn } from '@/hooks/use-fluid-hover'
 import { useShape } from '@/lib/shape-context'
 import { cn } from '@/lib/utils'
+import type { Sample } from '@/ui/samples'
 
 export interface ToolbarProps {
   fileName: string | null
   canUndo: boolean
   canRedo: boolean
   onOpen(): void
+  samples: readonly Sample[] // empty: no «Образцы» menu
+  onSample(sample: Sample): void
   onUndo(): void
   onRedo(): void
   exportBlockedReasons: string[]
@@ -26,18 +30,23 @@ function isButtonDisabled(el: HTMLElement) {
 interface GroupButtonProps extends Omit<ComponentProps<typeof Button>, 'ref' | 'variant'> {
   index: number
   hover: UseFluidHoverReturn
+  ref?: Ref<HTMLButtonElement> // e.g. a popover trigger's, kept alongside the group's own
 }
 
 // One member of the fluid-hover group. The group's highlight replaces the ghost button's own
 // hover fill (--hover is cleared locally), so the two never stack; the pressed fill stays.
-function GroupButton({ index, hover, className, ...props }: GroupButtonProps) {
+function GroupButton({ index, hover, className, ref: outerRef, ...props }: GroupButtonProps) {
   const ref = useRef<HTMLButtonElement>(null)
   useRegisterFluidHoverItem(hover.registerItem, index, ref)
   const { setActiveIndex } = hover
   return (
     <Button
       {...props}
-      ref={ref}
+      ref={(el: HTMLButtonElement | null) => {
+        ref.current = el
+        if (typeof outerRef === 'function') outerRef(el)
+        else if (outerRef) outerRef.current = el
+      }}
       variant="ghost"
       className={cn('relative z-10 text-foreground [--hover:transparent]', className)}
       // Keyboard focus moves the highlight; a mouse click must not light a stale item.
@@ -54,6 +63,8 @@ export function Toolbar({
   canUndo,
   canRedo,
   onOpen,
+  samples,
+  onSample,
   onUndo,
   onRedo,
   exportBlockedReasons,
@@ -68,6 +79,10 @@ export function Toolbar({
     isItemDisabled: isButtonDisabled,
     gapClick: false,
   })
+
+  const [samplesOpen, setSamplesOpen] = useState(false)
+  const hasSamples = samples.length > 0
+  const undoIndex = hasSamples ? 2 : 1
 
   const hasFile = fileName !== null
   const blocked = exportBlockedReasons.length > 0
@@ -94,8 +109,37 @@ export function Toolbar({
         <GroupButton index={0} hover={hover} leadingIcon={FolderOpen} onClick={onOpen}>
           Открыть
         </GroupButton>
+        {hasSamples && (
+          <Popover open={samplesOpen} onOpenChange={setSamplesOpen}>
+            <PopoverTrigger
+              render={<GroupButton index={1} hover={hover} leadingIcon={Sticker} trailingIcon={ChevronDown} />}
+              title="Открыть стикер из папки samples"
+            >
+              Образцы
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 gap-0 p-1.5">
+              <ul className="flex max-h-[60vh] flex-col overflow-y-auto" aria-label="Образцы">
+                {samples.map((sample) => (
+                  <li key={sample.file}>
+                    <button
+                      type="button"
+                      aria-current={sample.file === fileName || undefined}
+                      className="w-full cursor-pointer truncate rounded-xl px-3 py-2 text-left text-body text-foreground hover:bg-muted focus-visible:bg-muted focus-visible:outline-none aria-[current]:font-medium"
+                      onClick={() => {
+                        setSamplesOpen(false)
+                        onSample(sample)
+                      }}
+                    >
+                      {sample.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </PopoverContent>
+          </Popover>
+        )}
         <GroupButton
-          index={1}
+          index={undoIndex}
           hover={hover}
           size="icon"
           aria-label="Отменить"
@@ -106,7 +150,7 @@ export function Toolbar({
           <Undo2 />
         </GroupButton>
         <GroupButton
-          index={2}
+          index={undoIndex + 1}
           hover={hover}
           size="icon"
           aria-label="Повторить"

@@ -28,8 +28,9 @@ const REQUIRED_EXPORTS = [
 export interface Animation {
   readonly frameCount: number // Math.max(1, tlottie_frame_count)
   readonly frameRate: number // tlottie_frame_rate
-  /** Straight-alpha RGBA (w*h*4), a view into wasm memory valid until the next engine call. null after drop() or on engine failure. */
-  render(frame: number, width: number, height: number): Uint8ClampedArray<ArrayBuffer> | null
+  /** Straight-alpha RGBA (w*h*4), a view into wasm memory valid until the next engine call. null after drop() or on engine failure.
+   *  `antialias` false: hard edges, every pixel one exact paint colour (the ID map). */
+  render(frame: number, width: number, height: number, antialias?: boolean): Uint8ClampedArray<ArrayBuffer> | null
   drop(): void // idempotent
 }
 
@@ -73,9 +74,9 @@ export async function loadEngine(wasm: BufferSource): Promise<Engine> {
       return {
         frameCount,
         frameRate,
-        render(frame, width, height) {
+        render(frame, width, height, antialias = true) {
           if (handle === 0) return null
-          const out = api.tlottie_render(handle, frame, width, height, 1)
+          const out = api.tlottie_render(handle, frame, width, height, antialias ? 1 : 0)
           if (out === 0) return null
           return new Uint8ClampedArray(api.memory.buffer, out, width * height * 4)
         },
