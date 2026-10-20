@@ -272,8 +272,9 @@ function canvasPointAt(found: Found, local: Vec, frame: number, turns: Map<Tr, P
 
 // ---------- channels ----------
 
-// `keys`/`starts` are kept when the channel can be written straight from the preset keys.
-interface Driven { fn: (t: number) => number; keys?: Key[]; starts?: number[]; track: Track }
+// `runs`/`starts` are kept when the channel can be written straight from the preset keys:
+// runs[n] are the keys of start n (they differ when a parameter is a per-start list).
+interface Driven { fn: (t: number) => number; runs?: Key[][]; starts?: number[]; track: Track }
 
 function curveAt(keys: Key[], t: number): number {
   if (t <= keys[0].t) return keys[0].v
@@ -294,21 +295,32 @@ const startsOf = (track: { at?: number | number[] }): number[] => {
 
 // A preset track as functions of loop time, one per channel. Several starts add up (offsets) or
 // multiply (multipliers); a start that runs past the loop end wraps to its beginning.
-function presetChannels(track: Track, starts: number[], D: number): Partial<Record<Channel, Driven>> {
+// A numeric parameter given as a list is cycled per start (`index[n]`: the start's place in the
+// track's `at`, so `each` keeps the order): r: [-16, -20, -14] varies the recoil shot by shot.
+function presetChannels(track: Track, starts: number[], D: number, index = starts.map((_, n) => n)): Partial<Record<Channel, Driven>> {
   const preset = PRESETS[track.preset]
   if (!preset) throw new Error(`пресет «${track.preset}» не найден; есть: ${presetNames().join(', ')}`)
-  const len = preset.len(track, D)
-  const curves: Curves = preset.curves(track, len)
+  const paramsFor = (n: number): Track => {
+    const p: Track = { ...track }
+    for (const [k, v] of Object.entries(track))
+      if (k !== 'at' && Array.isArray(v) && v.length && v.every((x) => typeof x === 'number')) p[k] = v[index[n] % v.length]
+    return p
+  }
+  const per = starts.map((at, n) => {
+    const p = paramsFor(n), len = preset.len(p, D)
+    return { at, len, curves: preset.curves(p, len) as Curves }
+  })
   const out: Partial<Record<Channel, Driven>> = {}
-  for (const [c, keys] of Object.entries(curves) as [Channel, Key[]][]) {
+  const channels = [...new Set(per.flatMap((s) => Object.keys(s.curves)))] as Channel[]
+  for (const c of channels) {
     const rest = restOf(c)
-    const one = (at: number, t: number) => {
-      const local = (((t - at) % D) + D) % D
-      return local > len + 1e-9 ? rest : curveAt(keys, local)
+    const one = (s: (typeof per)[number], t: number) => {
+      const local = (((t - s.at) % D) + D) % D
+      return local > s.len + 1e-9 || !s.curves[c] ? rest : curveAt(s.curves[c]!, local)
     }
-    const fn = (t: number) => starts.reduce((v, at) => (MULTIPLIER[c] ? (v * one(at, t)) / rest : v + one(at, t) - rest), rest)
-    const clean = starts.every((at, n) => at >= 0 && at + len <= D + 1e-9 && (n === 0 || at >= starts[n - 1] + len - 1e-9))
-    out[c] = { fn, keys: clean ? keys : undefined, starts: clean ? starts : undefined, track }
+    const fn = (t: number) => per.reduce((v, s) => (MULTIPLIER[c] ? (v * one(s, t)) / rest : v + one(s, t) - rest), rest)
+    const clean = per.every((s, n) => s.curves[c] && s.at >= 0 && s.at + s.len <= D + 1e-9 && (n === 0 || s.at >= per[n - 1].at + per[n - 1].len - 1e-9))
+    out[c] = { fn, runs: clean ? per.map((s) => s.curves[c]!) : undefined, starts: clean ? starts : undefined, track }
   }
   return out
 }
@@ -325,15 +337,16 @@ function handles(ease: EaseName, dims: number, spatial: boolean): { o: Handle; i
 }
 
 // Keys straight from one track's preset keys (all channels of the property share key times),
-// repeated for each start; the value holds at rest between starts.
+// one run per start; the value holds at rest between starts.
 function directKeys(chs: (Driven | undefined)[], rest: number[], combine: (d: number, v: number) => number,
   fps: number, spatial: boolean): LKey[] | null {
   const live = chs.filter((c): c is Driven => !!c)
   const first = live[0]
-  if (!first.keys || live.some((c) => c.track !== first.track || !c.keys)) return null
-  const times = first.keys.map((k) => k.t)
-  if (live.some((c) => c.keys!.length !== times.length || c.keys!.some((k, n) => k.t !== times[n]))) return null
-  if (spatial && live.some((c) => c.keys!.some((k, n) => (k.ease ?? 'linear') !== (first.keys![n].ease ?? 'linear')))) return null
+  if (!first.runs || live.some((c) => c.track !== first.track || !c.runs)) return null
+  for (const [j, run] of first.runs.entries()) {
+    if (live.some((c) => c.runs![j].length !== run.length || c.runs![j].some((k, n) => k.t !== run[n].t))) return null
+    if (spatial && live.some((c) => c.runs![j].some((k, n) => (k.ease ?? 'linear') !== (run[n].ease ?? 'linear')))) return null
+  }
   const keys: LKey[] = []
   const push = (frame: number, s: number[], eases: EaseName[]) => {
     if (keys.length && frame <= keys[keys.length - 1].t) return
@@ -344,11 +357,11 @@ function directKeys(chs: (Driven | undefined)[], rest: number[], combine: (d: nu
         i: { x: es.map((e) => round(e.x2)), y: es.map((e) => round(e.y2)) } })
     }
   }
-  for (const at of first.starts!) {
+  for (const [j, at] of first.starts!.entries()) {
     if (!keys.length && Math.round(at * fps) > 0) push(0, rest.map(round), rest.map(() => 'linear'))
-    times.forEach((t, n) => {
-      const s = rest.map((r, d) => round(chs[d] ? combine(d, chs[d]!.keys![n].v) : r))
-      const ease = (d: number) => chs[d]?.keys![n].ease ?? first.keys![n].ease ?? 'linear'
+    first.runs[j].forEach(({ t }, n) => {
+      const s = rest.map((r, d) => round(chs[d] ? combine(d, chs[d]!.runs![j][n].v) : r))
+      const ease = (d: number) => chs[d]?.runs![j][n].ease ?? first.runs![j][n].ease ?? 'linear'
       push(Math.round((at + t) * fps), s, spatial ? [ease(chs.indexOf(first))] : rest.map((_, d) => ease(d)))
     })
   }
@@ -384,8 +397,8 @@ interface TurnKey { frame: number; ease: EaseName }
 // Key frames of the turn: the preset keys of each start, else every 2nd frame.
 function turnKeys(live: Driven[], fps: number, op: number): TurnKey[] {
   const byFrame = new Map<number, EaseName>()
-  if (live.every((c) => c.keys && c.starts)) {
-    for (const c of live) for (const at of c.starts!) for (const k of c.keys!) {
+  if (live.every((c) => c.runs && c.starts)) {
+    for (const c of live) for (const [j, at] of c.starts!.entries()) for (const k of c.runs![j]) {
       const f = Math.round((at + k.t) * fps)
       if (f >= 0 && f <= op && !byFrame.has(f)) byFrame.set(f, k.ease ?? 'linear')
     }
@@ -719,10 +732,11 @@ export function compileMotion(base: Lottie, spec: MotionSpec, sources: Record<st
   for (const track of spec.tracks.filter((t) => t.preset !== 'follow')) {
     const parts = matchParts(groups, track.part), starts = startsOf(track)
     parts.forEach((f, k) => {
-      const mine = track.each ? starts.filter((_, n) => n % parts.length === k) : starts
+      const index = starts.map((_, n) => n).filter((n) => !track.each || n % parts.length === k)
+      const mine = index.map((n) => starts[n])
       if (!mine.length) return
       if (!pivotPreset.has(f)) pivotPreset.set(f, track.preset)
-      for (const [c, d] of Object.entries(presetChannels(track, mine, D)) as [Channel, Driven][]) add(f, c, d)
+      for (const [c, d] of Object.entries(presetChannels(track, mine, D, index)) as [Channel, Driven][]) add(f, c, d)
       if (track.launch) launches.push({ found: f, track, starts: mine })
     })
   }
@@ -793,7 +807,7 @@ export function compileMotion(base: Lottie, spec: MotionSpec, sources: Record<st
       for (const drv of mine[c] ?? []) if (drv.track === track) {
         const fn = drv.fn
         drv.fn = (t) => fn(t) + offsetAt(t, d)
-        drv.keys = undefined; drv.starts = undefined
+        drv.runs = undefined; drv.starts = undefined
       }
       if (!mine[c]?.some((drv) => drv.track === track)) add(found, c, { fn: (t) => offsetAt(t, d), track })
     }

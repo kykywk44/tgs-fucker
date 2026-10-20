@@ -37,6 +37,13 @@ function scale(times: number[], pairs: [number, number][], eases: EaseName[]): C
   }
 }
 
+// x squeezed 100 → min → 100 once per half-turn (sy stays): a flat shape seen turning end over end.
+function tumble(halves: number, min: number, len: number): Curves {
+  if (halves <= 0) return {}
+  const n = 2 * halves
+  return { sx: Array.from({ length: n + 1 }, (_, k) => ({ t: (len * k) / n, v: k % 2 ? min : 100, ease: 'inOut' as EaseName })) }
+}
+
 export const PRESETS: Record<string, Preset> = {
   // Jump with anticipation, stretch on take-off, slow apex, squash on landing and a settle.
   bounce: {
@@ -150,18 +157,39 @@ export const PRESETS: Record<string, Preset> = {
     },
   },
   // Thrown object (a shell casing): shown at the start, flies along a parabola while spinning,
-  // hidden at the end. vx, vy in px/s (vy < 0 = up), gravity px/s², spin °/s.
+  // hidden at the end. vx, vy in px/s (vy < 0 = up), gravity px/s², spin °/s; `tumble`: half-turns
+  // end over end during the flight, faked by squeezing x down to `tumbleMin` % and back.
   eject: {
     pivot: 'center',
     len: (p) => num(p, 'len', 0.6),
     curves: (p, len) => {
       const vx = num(p, 'vx', 260), vy = num(p, 'vy', -520), g = num(p, 'gravity', 2400), spin = num(p, 'spin', 900)
       const y = (t: number) => vy * t + (g * t * t) / 2
-      const apex = Math.min(Math.max(-vy / g, 0.01), len - 0.01)
+      const apex = g > 0 ? Math.min(Math.max(-vy / g, 0.01), len - 0.01) : len / 2 // no gravity: a straight line
       return {
         x: [{ t: 0, v: 0, ease: 'linear' }, { t: len, v: vx * len }],
         y: [{ t: 0, v: 0, ease: 'quadOut' }, { t: apex, v: y(apex), ease: 'quadIn' }, { t: len, v: y(len) }],
         r: [{ t: 0, v: 0, ease: 'linear' }, { t: len, v: spin * len }],
+        ...tumble(Math.round(num(p, 'tumble', 0)), num(p, 'tumbleMin', 30), len),
+        show: [{ t: 0, v: 100, ease: 'linear' }, { t: len - 0.001, v: 100, ease: 'linear' }, { t: len, v: 0 }],
+      }
+    },
+  },
+  // A puff of smoke, a shock ring or a spark: shown at the start, grows from `from` to `to` %
+  // (ease out), drifts by dx, dy px, fades from `fade` (fraction of len) to the end, then hidden.
+  puff: {
+    pivot: 'center',
+    len: (p) => num(p, 'len', 0.6),
+    curves: (p, len) => {
+      const from = num(p, 'from', 40), to = num(p, 'to', 120), fade = num(p, 'fade', 0.4) * len
+      const dx = num(p, 'dx', 0), dy = num(p, 'dy', 0)
+      const grow: Key[] = [{ t: 0, v: from, ease: 'out' }, { t: len, v: to }]
+      return {
+        ...(dx ? { x: [{ t: 0, v: 0, ease: 'softOut' }, { t: len, v: dx }] } : {}),
+        ...(dy ? { y: [{ t: 0, v: 0, ease: 'softOut' }, { t: len, v: dy }] } : {}),
+        sx: grow, sy: grow.map((k) => ({ ...k })),
+        // faded out a frame before the end, back to rest on the last key (hidden by then, so the loop closes)
+        o: [{ t: 0, v: 100, ease: 'linear' }, { t: Math.min(fade, len - 1 / 60), v: 100, ease: 'in' }, { t: len - 1 / 60, v: 0, ease: 'linear' }, { t: len, v: 100 }],
         show: [{ t: 0, v: 100, ease: 'linear' }, { t: len - 0.001, v: 100, ease: 'linear' }, { t: len, v: 0 }],
       }
     },

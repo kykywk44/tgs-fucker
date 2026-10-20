@@ -153,6 +153,30 @@ describe('compileMotion', () => {
     expect(o('eye_R', 34)).toBe(100)
   })
 
+  it('cycles list parameters per start', () => {
+    const out = compileMotion(blob, { duration: 1,
+      tracks: [{ part: 'body', preset: 'kick', r: [-10, -20], attack: 1 / 60, hold: 1 / 60, release: 0.1, at: [0.1, 0.5, 0.8] }] })
+    const r = (f: number) => valueAt(tr(out, 'body').r, f)[0]
+    expect(r(7)).toBeCloseTo(-10, 3)
+    expect(r(31)).toBeCloseTo(-20, 3)
+    expect(r(49)).toBeCloseTo(-10, 3)
+  })
+
+  it('keeps the start order for list parameters under `each`', () => {
+    const out = compileMotion(blob, { duration: 1, rig: { 'eye_*': { hidden: true } },
+      tracks: [{ part: 'eye_*', preset: 'eject', each: true, vx: [100, 200, 300], vy: 0, gravity: 0, spin: 0, len: 0.2, at: [0.1, 0.4, 0.7] }] })
+    const dx = (name: string, f0: number) => valueAt(tr(out, name).p, f0 + 6)[0] - valueAt(tr(out, name).p, f0)[0]
+    expect(dx('eye_L', 6)).toBeCloseTo(10, 0) // start 0 → 100 px/s
+    expect(dx('eye_R', 24)).toBeCloseTo(20, 0) // start 1 → 200 px/s
+    expect(dx('eye_L', 42)).toBeCloseTo(30, 0) // start 2 → 300 px/s
+  })
+
+  it('tumbles a shell end over end', () => {
+    const keys = PRESETS.eject.curves({ tumble: 2, tumbleMin: 40 }, 0.4).sx!
+    expect(keys.map((k) => k.v)).toEqual([100, 40, 100, 40, 100])
+    expect(keys[4].t).toBeCloseTo(0.4, 6)
+  })
+
   it('throws a shell along a parabola', () => {
     const out = compileMotion(blob, { duration: 1, rig: { eye_L: { hidden: true } },
       tracks: [{ part: 'eye_L', preset: 'eject', vx: 300, vy: -600, gravity: 2400, at: 0 }] })

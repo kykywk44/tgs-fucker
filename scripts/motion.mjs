@@ -4,12 +4,15 @@
 //   stickers/<name>/motion.json (MotionSpec, src/core/motion/compile.ts; "sources": { name: "path.tgs" }
 //                               are the stickers its effects are copied from, paths from the repo root)
 // → exports/<name>.tgs, exports/sheets/<name>.motion.png (12 frames), Telegram checks on stdout.
+//   stickers/<name>/variants/<v>.json (optional) — shallow overrides of motion.json → exports/<name>-<v>.tgs;
+//                               motion.json stays the baseline <name>.tgs, and
+//                               exports/sheets/<name>.compare.png shows the baseline and every variant row by row
 // The SVG is converted by python-lottie (lottie_convert.py from .venv, set up by scripts/check.sh).
-// Usage: node scripts/motion.mjs <name|stickers/name> [...] [--closeup=x,y,size,from-to]
+// Usage: node scripts/motion.mjs <name|stickers/name> [...] [--closeup=x,y,size,from-to] [--compare=from-to,step]
 
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { Canvas, ROOT, encodePng, engine, framesAt, load } from './lib/sheets.mjs'
 
@@ -61,6 +64,26 @@ async function sheet(anim, out) {
   inst.drop()
 }
 
+// One row per build, the same frames in every row (default: every 10th frame of the loop).
+const compareArg = process.argv.find((a) => a.startsWith('--compare='))
+async function compare(rows, out) {
+  const C = 128, LABEL = 18
+  const [range = '0-179', step = '10'] = (compareArg?.slice(10) ?? '').split(',').filter(Boolean)
+  const [f0, f1] = range.split('-').map(Number)
+  const frames = []
+  for (let f = f0; f <= f1; f += +step) frames.push(f)
+  const c = new Canvas(C * frames.length, (C + LABEL) * rows.length + 14)
+  frames.forEach((f, i) => c.text(`f ${f}`, i * C + 4, 2, [90, 90, 90]))
+  rows.forEach(([label, anim], r) => {
+    const inst = eng.create(JSON.stringify(anim)), oy = 14 + r * (C + LABEL)
+    c.text(`${r + 1}`, 4, oy + 3, [200, 0, 0]) // the sheet font has digits only: legend on stdout
+    frames.forEach((f, i) => c.draw(inst.render(Math.min(f, inst.frameCount - 1), C, C).slice(), C, i * C, oy + LABEL))
+    inst.drop()
+  })
+  await writeFile(join(ROOT, 'exports', 'sheets', `${out}.compare.png`), encodePng(c.px, c.width, c.height))
+  console.log(`exports/sheets/${out}.compare.png: ${rows.map(([l], r) => `${r + 1} ${l}`).join(', ')}`)
+}
+
 for (const name of names) {
   const dir = join(ROOT, 'stickers', name)
   try {
@@ -82,17 +105,26 @@ for (const name of names) {
     // "variants": { "a": { ...overrides } } builds <name>-a.tgs, … ; the first one is also <name>.tgs
     const builds = variants ? Object.entries(variants).map(([v, over]) => [`${name}-${v}`, { ...spec, ...over }]) : [[name, spec]]
     if (variants) builds.push([name, builds[0][1]])
+    const vdir = join(dir, 'variants')
+    if (existsSync(vdir)) for (const file of (await readdir(vdir)).filter((f) => f.endsWith('.json')).sort()) {
+      const { sources: more = {}, ...over } = JSON.parse(await readFile(join(vdir, file), 'utf8'))
+      for (const [key, path] of Object.entries(more)) sources[key] ??= await readTgs(await readFile(join(ROOT, path)))
+      builds.push([`${name}-${basename(file, '.json')}`, { ...spec, ...over }])
+    }
+    const rows = []
     for (const [out, variantSpec] of builds) {
       const { sketch, ...rest } = variantSpec
       const anim = compileMotion(await baseFor(sketch), rest, sources)
       const bytes = await writeTgs(anim)
       await writeFile(join(ROOT, 'exports', `${out}.tgs`), bytes)
       if (out !== name || !variants) await sheet(anim, out)
+      if (!rows.some(([l]) => l === out)) rows.push([out, anim])
       const checks = telegramChecks(anim, bytes.length)
       console.log(`${out}: exports/${out}.tgs ${sizeKb(bytes)} KB${checks.every((c) => c.ok) ? ', проверки Telegram ✓' : ''}`)
       for (const c of checks) if (!c.ok) console.log(`  ✕ ${c.label} — ${c.value} / ${c.limit}`)
       if (!checks.every((c) => c.ok)) failed = true
     }
+    if (rows.length > 1) await compare(rows, name)
   } catch (err) {
     failed = true
     console.error(`${name}: ${err.stderr?.toString() || err.message}`)

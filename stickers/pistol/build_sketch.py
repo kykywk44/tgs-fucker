@@ -355,6 +355,11 @@ svg = f'''<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns=
 <g id="shell_1"><path d="M236 143H263C265.5 143 267 145 267 147.5V154.5C267 157 265.5 159 263 159H236Z" fill="#E3AE45" stroke="#5A3E12" stroke-width="3"/><path d="M240 147.5H261" stroke="#FFE29A" stroke-width="3" stroke-linecap="round"/><path d="M230 141H237V161H230Z" fill="#B57F25" stroke="#5A3E12" stroke-width="3"/></g>
 <g id="shell_2"><path d="M236 143H263C265.5 143 267 145 267 147.5V154.5C267 157 265.5 159 263 159H236Z" fill="#E3AE45" stroke="#5A3E12" stroke-width="3"/><path d="M240 147.5H261" stroke="#FFE29A" stroke-width="3" stroke-linecap="round"/><path d="M230 141H237V161H230Z" fill="#B57F25" stroke="#5A3E12" stroke-width="3"/></g>
 <g id="shell_3"><path d="M236 143H263C265.5 143 267 145 267 147.5V154.5C267 157 265.5 159 263 159H236Z" fill="#E3AE45" stroke="#5A3E12" stroke-width="3"/><path d="M240 147.5H261" stroke="#FFE29A" stroke-width="3" stroke-linecap="round"/><path d="M230 141H237V161H230Z" fill="#B57F25" stroke="#5A3E12" stroke-width="3"/></g>
+<g id="shell_4"><path d="M236 143H263C265.5 143 267 145 267 147.5V154.5C267 157 265.5 159 263 159H236Z" fill="#E3AE45" stroke="#5A3E12" stroke-width="3"/><path d="M240 147.5H261" stroke="#FFE29A" stroke-width="3" stroke-linecap="round"/><path d="M230 141H237V161H230Z" fill="#B57F25" stroke="#5A3E12" stroke-width="3"/></g>
+<g id="shell_5"><path d="M236 143H263C265.5 143 267 145 267 147.5V154.5C267 157 265.5 159 263 159H236Z" fill="#E3AE45" stroke="#5A3E12" stroke-width="3"/><path d="M240 147.5H261" stroke="#FFE29A" stroke-width="3" stroke-linecap="round"/><path d="M230 141H237V161H230Z" fill="#B57F25" stroke="#5A3E12" stroke-width="3"/></g>
+<g id="shell_6"><path d="M236 143H263C265.5 143 267 145 267 147.5V154.5C267 157 265.5 159 263 159H236Z" fill="#E3AE45" stroke="#5A3E12" stroke-width="3"/><path d="M240 147.5H261" stroke="#FFE29A" stroke-width="3" stroke-linecap="round"/><path d="M230 141H237V161H230Z" fill="#B57F25" stroke="#5A3E12" stroke-width="3"/></g>
+<g id="shell_7"><path d="M236 143H263C265.5 143 267 145 267 147.5V154.5C267 157 265.5 159 263 159H236Z" fill="#E3AE45" stroke="#5A3E12" stroke-width="3"/><path d="M240 147.5H261" stroke="#FFE29A" stroke-width="3" stroke-linecap="round"/><path d="M230 141H237V161H230Z" fill="#B57F25" stroke="#5A3E12" stroke-width="3"/></g>
+<g id="shell_8"><path d="M236 143H263C265.5 143 267 145 267 147.5V154.5C267 157 265.5 159 263 159H236Z" fill="#E3AE45" stroke="#5A3E12" stroke-width="3"/><path d="M240 147.5H261" stroke="#FFE29A" stroke-width="3" stroke-linecap="round"/><path d="M230 141H237V161H230Z" fill="#B57F25" stroke="#5A3E12" stroke-width="3"/></g>
 <defs>
 {''.join(HL_DEFS)}
 {grads(['paint0_linear_0_4','paint1_linear_0_4','paint2_linear_0_4','paint3_linear_0_4','paint4_linear_0_4','paint5_linear_0_4','paint7_linear_0_4','paint8_linear_0_4'])}
@@ -364,7 +369,7 @@ svg = f'''<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns=
 def shift_x(m):
     nums = m.group(2).split(' ')
     return m.group(1) + ' '.join(f(float(n) - 20) if i % 2 == 0 else n for i, n in enumerate(nums))
-for gid in ('shell_1', 'shell_2', 'shell_3'):
+for gid in [f'shell_{n}' for n in range(1, 9)]:
     a = svg.index(f'<g id="{gid}"'); b = svg.index('</g>', a)
     part = re.sub(r'([MLHC]|(?<=[0-9]) )', lambda m: m.group(0), svg[a:b])
     def fix_d(dm):
@@ -376,5 +381,10 @@ for gid in ('shell_1', 'shell_2', 'shell_3'):
             out_.append(cmd + ' '.join(vals))
         return 'd="' + ''.join(out_) + '"'
     svg = svg[:a] + re.sub(r'(?<![a-z])d="([^"]*)"', fix_d, svg[a:b]) + svg[b:]
+# shells 1–8 fly out over the gun; two more, back_shell_1..2, are drawn under it — most shells fly
+# out in front, a couple fall behind the gun.
+shell1 = re.search(r'<g id="shell_1">.*?</g>\n', svg).group(0)
+back = ''.join(shell1.replace('shell_1', f'back_shell_{n}') for n in (1, 2))
+svg = svg.replace('<g id="gun"', back + '<g id="gun"', 1)
 open(out, 'w').write(svg)
 print('texture segments', len(tex), 'bytes', len(svg))
