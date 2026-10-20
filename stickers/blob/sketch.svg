@@ -1,0 +1,9 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+<g id="shadow"><ellipse cx="256" cy="440" rx="110" ry="18" fill="#000000" fill-opacity="0.15"/></g>
+<g id="body">
+  <path d="M256 140C340 140 380 220 380 320C380 400 330 430 256 430C182 430 132 400 132 320C132 220 172 140 256 140Z" fill="#FFB547"/>
+  <g id="eye_L"><circle cx="216" cy="280" r="16" fill="#2B2B2B"/></g>
+  <g id="eye_R" transform="translate(80 0)"><circle cx="216" cy="280" r="16" fill="#2B2B2B"/></g>
+  <path d="M230 330Q256 352 282 330" stroke="#2B2B2B" stroke-width="8" stroke-linecap="round" fill="none"/>
+</g>
+</svg>

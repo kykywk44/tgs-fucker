@@ -1,0 +1,17 @@
+{
+  "highlights": {
+    "width": 8,
+    "colors": {
+      "slide": "#A9B1BE",
+      "frame": "#E4C27A",
+      "guard": "#DDBB78",
+      "trigger": "#9A958F",
+      "sights": "#C2C8D2",
+      "barrel": "#B6BDC9"
+    },
+    "shadows": {
+      "slide": "#0D0E10",
+      "frame": "#7A6340"
+    }
+  }
+}

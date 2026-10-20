@@ -1,0 +1,12 @@
+{
+  "duration": 2,
+  "rig": {
+    "shadow": { "pivot": "center" }
+  },
+  "tracks": [
+    { "part": "body", "preset": "bounce", "height": 60, "squash": 0.16, "len": 1.1, "at": 0.15 },
+    { "part": "eye_*", "preset": "blink", "at": 1.45 },
+    { "part": "shadow", "preset": "follow", "of": "body", "from": "y", "to": "sx", "gain": 0.45, "delay": 0 },
+    { "part": "shadow", "preset": "follow", "of": "body", "from": "y", "to": "sy", "gain": 0.45, "delay": 0 }
+  ]
+}

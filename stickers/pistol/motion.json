@@ -1,0 +1,326 @@
+{
+  "duration": 3,
+  "sources": {
+    "meteor": "gun_refs/MeteorSticker.tgs",
+    "fire": "gun_refs/FireEffectsSticker.tgs"
+  },
+  "rig": {
+    "gun": {
+      "pivot": [
+        197.8,
+        280.5
+      ],
+      "focal": 700
+    },
+    "slide": {
+      "z": 6,
+      "depth": {
+        "thickness": 46,
+        "color": "#2B2D33",
+        "minArea": 0.004
+      }
+    },
+    "barrel": {
+      "z": 0,
+      "depth": {
+        "thickness": 39,
+        "color": "#2E3137",
+        "layers": 4,
+        "outline": 6,
+        "profile": "round",
+        "cap": {
+          "color": "#4A4E57",
+          "hole": "#0D0E11",
+          "into": "muzzle_face"
+        },
+        "minArea": 0.3
+      }
+    },
+    "frame": {
+      "depth": {
+        "thickness": 40,
+        "color": "#7A6340",
+        "minArea": 0.2,
+        "layers": 2,
+        "outlineColor": "#58462A"
+      },
+      "zones": [
+        {
+          "box": [
+            198,
+            198,
+            320,
+            300
+          ],
+          "z": -12,
+          "thickness": 16,
+          "feather": 14
+        }
+      ]
+    },
+    "trigger": {
+      "pivot": "top",
+      "z": -20
+    },
+    "gun_light": {
+      "hidden": true,
+      "z": 6,
+      "zones": [
+        {
+          "box": [
+            198,
+            198,
+            320,
+            300
+          ],
+          "z": -12,
+          "thickness": 16,
+          "feather": 14
+        }
+      ]
+    },
+    "shell_*": {
+      "hidden": true
+    },
+    "port_*": {
+      "hidden": true
+    }
+  },
+  "tracks": [
+    {
+      "part": "gun",
+      "preset": "kick",
+      "yaw": -24,
+      "pitch": -6,
+      "attack": 0.3,
+      "hold": 0.55,
+      "release": 0.4,
+      "attackEase": "inOut",
+      "releaseEase": "inOut",
+      "at": 0.05
+    },
+    {
+      "part": "gun",
+      "preset": "kick",
+      "yaw": 20,
+      "pitch": -8,
+      "attack": 0.28,
+      "hold": 0.45,
+      "release": 0.4,
+      "attackEase": "inOut",
+      "releaseEase": "inOut",
+      "at": 1.4
+    },
+    {
+      "part": "trigger",
+      "preset": "kick",
+      "r": 16,
+      "attack": 0.05,
+      "release": 0.12,
+      "at": [
+        0.45,
+        0.85,
+        1.75,
+        1.95
+      ]
+    },
+    {
+      "part": "slide",
+      "preset": "kick",
+      "x": -44,
+      "attack": 0.034,
+      "hold": 0.034,
+      "release": 0.067,
+      "releaseEase": "backOut",
+      "at": [
+        0.5,
+        0.9,
+        1.8,
+        2.0
+      ]
+    },
+    {
+      "part": "gun_light",
+      "preset": "kick",
+      "show": 100,
+      "attack": 0.0167,
+      "release": 0.0167,
+      "at": [
+        0.5167,
+        0.9167,
+        1.8167,
+        2.0167
+      ]
+    },
+    {
+      "part": "gun",
+      "preset": "kick",
+      "r": -18,
+      "x": -14,
+      "y": -5,
+      "attack": 0.025,
+      "release": 0.18,
+      "at": [
+        0.5167,
+        0.9167,
+        1.8167,
+        2.0167
+      ]
+    },
+    {
+      "part": "gun",
+      "preset": "kick",
+      "r": 5,
+      "attack": 0.2,
+      "release": 0.5,
+      "attackEase": "inOut",
+      "releaseEase": "inOut",
+      "at": 2.25
+    },
+    {
+      "part": "port_open",
+      "preset": "kick",
+      "show": 100,
+      "attack": 0.0167,
+      "hold": 0.067,
+      "release": 0.0167,
+      "at": [
+        0.5,
+        0.9,
+        1.8,
+        2.0
+      ]
+    },
+    {
+      "part": "port_case",
+      "preset": "kick",
+      "show": 100,
+      "attack": 0.0167,
+      "hold": 0.025,
+      "release": 0.0167,
+      "at": [
+        0.5,
+        0.9,
+        1.8,
+        2.0
+      ]
+    },
+    {
+      "part": "shell_*",
+      "preset": "eject",
+      "each": true,
+      "launch": {
+        "part": "gun",
+        "point": [
+          206,
+          136
+        ]
+      },
+      "vx": -170,
+      "vy": -560,
+      "gravity": 2400,
+      "spin": -900,
+      "len": 0.85,
+      "at": [
+        0.55,
+        0.95,
+        1.85,
+        2.05
+      ]
+    }
+  ],
+  "effects": [
+    {
+      "source": "meteor",
+      "comp": "comp_2",
+      "at": [
+        0.5,
+        0.9,
+        1.8,
+        2.0
+      ],
+      "anchor": {
+        "part": "gun",
+        "point": [
+          486,
+          140
+        ]
+      },
+      "origin": [
+        76,
+        77
+      ],
+      "skip": 3,
+      "speed": 1.5,
+      "scale": 90,
+      "stretch": [
+        170,
+        90
+      ],
+      "aim": true,
+      "follow": true,
+      "len": 0.12
+    },
+    {
+      "source": "fire",
+      "comp": "comp_2",
+      "at": [
+        0.53,
+        0.93,
+        1.83,
+        2.03
+      ],
+      "anchor": {
+        "part": "gun",
+        "point": [
+          500,
+          134
+        ]
+      },
+      "origin": [
+        290,
+        500
+      ],
+      "skip": 4,
+      "speed": 1.6,
+      "scale": [
+        14,
+        12,
+        15,
+        13
+      ],
+      "rotate": [
+        10,
+        -5,
+        15,
+        0
+      ],
+      "len": 0.5
+    },
+    {
+      "source": "fire",
+      "comp": "comp_19",
+      "at": [
+        0.56,
+        0.96,
+        1.86,
+        2.06
+      ],
+      "anchor": {
+        "part": "gun",
+        "point": [
+          250,
+          112
+        ]
+      },
+      "origin": [
+        290,
+        500
+      ],
+      "skip": 6,
+      "speed": 1.8,
+      "scale": 8,
+      "len": 0.4
+    }
+  ]
+}
