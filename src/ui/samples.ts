@@ -1,4 +1,4 @@
-// Stickers from the repo's `samples/` folder (untracked, the user's own files),
+// Stickers from the repo's `samples/` folder (the user's own files),
 // offered in the toolbar so a sample opens in one click. Vite lists them at
 // build time; with an empty folder the list is empty and the menu is hidden.
 
