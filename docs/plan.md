@@ -1018,3 +1018,272 @@ A static sketch (SVG with named groups, via python-lottie) + `motion.json` → a
 - The slide highlight no longer runs down the rear edge and the sights have no light dots (on a turn they read as a light grey back face and light rims; checked in lottie-web via `exports/view.html` on the dev server).
 - `rig.focal` may be `[seconds, focal]` points; variant `camera-mixed`: the turn towards the viewer (the first) with `camera.json` `mixed.towards` (80°, ×1.35), the turn away with `mixed.away` (54°, ×1), the camera moving during the swing.
 - `MotionSpec.view` (null layer) + `scripts/fit.mjs`: each build as large as fits with 8 px margin (baseline 107.8 %, camera-mixed 101.6 %, camera 96.3 % — the wide turn spans the canvas). The muzzle flash is about a third shorter so it fits.
+
+### Blue pack: base stickers (user, 2026-10-21)
+- New direction: a sticker pack in the style of Telegram's blue silhouette people. The four source emoji (👤 bust, 👥 busts, 🫂 hugging, 🗣 speaking head) live in `packs/blue/base/` (untouched originals; style colours in `packs/blue/README.md`). Plan: recolour/restyle existing emoji into this style and make new poses from these parts.
+- Not in `samples/`: every sample must resolve to a profile, and three of the four have none yet. 🫂 is byte-identical to `samples/HugsSticker.tgs`.
+- Measured: all pass `scripts/check.sh` (mattes note on 👥/🫂), 2.5–7.9 KB, tlottie 0.6–1.8 ms per 512 px frame, seamless loops.
+- `scripts/check.sh` and `scripts/motion.mjs` run on Windows (Git Bash): python found as `python3`/`python`/`py`, venv `Scripts/`, the converter run through the venv's python.
+
+### Blue pack: 🖕 restyled (2026-10-21)
+- `scripts/restyle.mjs` + `packs/blue/style.json` + `packs/blue/<name>/{source.tgs,recipe.json}`: paints swapped by colour, `"body"` fills → one vertical gradient over all body shapes at a reference frame, written into each fill's own coordinates. Telegram's yellow emoji are built like the blue people (fills + 8-px round strokes), so the animation stays as is.
+- 🖕 (`middle-finger`): outline → #335375, skin → body gradient, lights → #a5d6ea, shadows → #44688b (with #335375 the palm read too dark next to 👤). 17.5 KB, check.sh PASS, tlottie ~1 ms/frame. Awaiting the user's review.
+
+### Emoji library tab (user, 2026-10-21)
+- 🖕 approved («супер вышел») → `packs/blue/ready/middle-finger.tgs`; `ready/` holds approved blue emoji only.
+- 997 Telegram animated emoji in `library/emoji/NNN.tgs` (gitignored: 36 MB, not ours; `library/README.md`). 🖕 = 167.
+- Editor: toolbar switch «Редактор / Эмодзи». The «Эмодзи» tab (`src/ui/Library.tsx`) is what the user asked for: a grid of **static** thumbnails, click selects (Shift+click — range), a bottom bar «Скопировать ID» copies `003, 004, 017`; sets «Эмодзи Telegram» and «Синий пак · готово»; a blue dot marks emoji that already have a blue version; double-click opens one in the editor. Data from `node scripts/library.mjs` (index + sprites, dev server only — not bundled).
+- Workflow from now on: the user sends a batch of IDs with an instruction; recipes name their source with `"library": "NNN"`.
+
+### Blue pack: hands batch, 🙏, 6-7 draft (2026-10-21)
+- User's batch: 128 129 130 131 132 133 134 135 136 143 144 147 157 158 159 160 161 162 163 164 165 168 170 → `packs/blue/<slug>/` with `recipe.json` `{ emoji, library }`; the skin colours moved to `style.json` (`colors`, plus `ramp` for any other warm colour by lightness); precomp assets get their own gradient. Grey motion lines → #335375 / #a5d6ea / #6086a7. All pass check.sh. The user will choose which go to `ready/`.
+- 169 🙏: user wanted the sleeves gone. Long thin forearms — rejected («что-то тонкое выходит»); short forearm stubs — rejected («пилюли»). Decision: floating hands cut at the wrist — sleeves removed, the palm's hidden bottom edge outlined (`underlines`), the palm stroke's end that ran under the sleeve trimmed to 82 % (`trims`). Within 16–476 px.
+- 6-7: draft from 🤲 129 (`packs/blue/six-seven/build.mjs` + `motion.json`): pose frozen at frame 100 (proper eased + spatial interpolation), sparkles dropped, hands apart, alternating up/down swing with a lagging tilt, seamless 180-frame loop, view fitted. The user said it will be redone later (the requested view: fingers towards the viewer, palms barely visible).
+
+### Blue pack: softer highlights; «Эмодзи» tab plays (user, 2026-10-21)
+- On-hand highlights were too white: `#ffd75d` → `#8cb7d3` (instead of the rim colour #a5d6ea) in clapping-hands, hand-with-fingers-splayed, heart-hands, leftwards-hand, open-hands, palms-up-together, raised-hand, raising-hands, thumbs-down, thumbs-up, vulcan-salute, waving-hand (per recipe). Effects above the hands (triangles, sparkles) stay bright.
+- «Эмодзи» tab: toggle «Анимация» (top right, off by default, remembered in localStorage). On: a tile gets a canvas + animation only while on screen (IntersectionObserver), dropped when it leaves; nothing starts and playback pauses while scrolling, tiles start 500 ms after the scroll rests. `src/player/grid.ts` (GridPlayer: shared clock, visible-only drawing, ≤ 30 fps, LRU) + `grid.worker.ts`; tiles shared between up to 4 workers, drawn at ≤ 96 px (56 complex emoji at 128 px cost ~65 ms per frame on one core).
+- The tab stays mounted while the editor is shown (selection and scroll kept); a file opened from it gets «← Назад» in the toolbar.
+- (later, 2026-10-21) Still too white in hand-with-fingers-splayed, leftwards-hand, open-hands, raised-hand, vulcan-salute, waving-hand: the palm-centre highlight layers («Palm … Light», «palm light») are now removed with the recipe's new `fade` (layer opacity %, 0 = gone), big thumb-base lights at 40 %; finger lights and leftwards-hand's top light stay (user: top is fine, the middle is not).
+- (later, 2026-10-21) 👍 / 👎: highlights made small and alike — the big ones (👍 «Light 1», «Light 4»; 👎 «arm») gone, the finger ones at 45 %. `fade` now scales only the highlight fills (`style.highlight`, #ffd75d) of a layer: in 👍/👎 a finger's highlight shares its layer with the finger. call-me-hand, flexed-biceps, heart-hands, ok-hand, oncoming-fist, rightwards-hand, writing-hand: highlights #8cb7d3 like the others.
+
+### Blue pack: 👉👌 finger-ok (user, 2026-10-21)
+- Source: the user's static scene MadEmoji2 (pointing hand 153 + OK hand 147 drawn as one composition; the OK ring is a separate layer above the pointing hand). `packs/blue/finger-ok/`: restyled with a gradient per hand (restyle.mjs recipe `gradients`: groups of layer names), then `build.mjs` + `motion.json`: the pointing hand slides along its finger axis (out 60 px … in 6 px past the reference) 4 times in 3 s, tilting 3°; the OK hand sways 14 px and 2° against each push, 3 frames behind; a view null moves the scene 26 px right so the stroke stays in the canvas (18–494 px). Seamless loop, 5.4 KB.
+- Interpretation to confirm: «повторять анимацию, которая уже есть» taken as keeping the user's composition exactly; 153's own idle wiggle is not used.
+- `library.mjs`: a recipe's `library` may list several emoji.
+- (later, 2026-10-21) finger-ok physics and shadows (user: «чуть-чуть физики», «тени запечены»): the ring's shadow on the finger (pointing «Shape 11») is counter-moved so it stays at the ring; the finger's shadow on the palm inside the ring (OK «Shape 4») moves with the finger and its opacity follows the depth (0 when out) — both baked every 2 frames. The three open OK fingers bend: points above the finger bases (canvas y < 205) shift sideways by θ·height·weight (more for the little finger), θ a damped spring (period 16 frames, damping 0.16, peak 7°) driven by the OK hand's acceleration, run to steady state; keys only at its 26 peaks with an in-out ease. The three stacked shadow copies are merged into one at the combined opacity (84.5 → 47 KB). Seamless, 18–494 px.
+- (later, 2026-10-21) User: the shadow under the pointing finger must ride with the finger (pinning it to the ring was wrong) — reverted; only the finger's shadow on the palm inside the ring moves with the finger and fades. The fingers swayed too much: bend 3° (was 7°), damping 0.3, period 14. 43 KB.
+- (later, 2026-10-21) The finger's underside shadow («Shape 11») is the OK hand's shadow on the finger: it must stay under the ring yet show only on the finger. Now: a copy of the strip on its own layer, carried by the OK hand's sway, under an alpha track matte made of the pointing hand's fills (moves with the finger). check.sh notes «Mattes are not officially supported» (Telegram's own 🫂/👥 use mattes; tlottie renders them). The palm shadow inside the ring no longer moves (on the top layer it showed as a «cloud» over the thumb) — it only fades with the finger's depth. 43 KB.
+- (later, 2026-10-21) User: the part of the strip left of the ring must ride with the finger and stretch, not stand still; the palm shadow must move with the finger but under the thumb and the ring's top finger. Now: the strip's points left of the ring's edge (strip-local x < −6, fully at < −20; `motion.json` `strip.edge`) follow the finger relative to the OK hand (path baked every 2 frames), so the strip stretches; the palm shadow («Shape 4») moved off the ring layer onto its own layer under the pointing hand, following the finger, under an alpha matte of the palm (Shape Layer 1 fills); no fade. 47.5 KB, seamless.
+- (later, 2026-10-21) User: a micro gap under the fingertip inside the ring. Cause: the pointing hand tips 3° as it pushes in, the palm shadow was only translated. Now the palm-shadow layer is a child of the pointing hand (the ring layer's rest transform in the hand's space), so it follows translation and tilt; no baked position. 46.5 KB.
+- (later, 2026-10-21) User: the palm shadow sat too high (gap below, to the ring's lower finger) and was jagged. The drawn shadow is dropped; the shadow is now the pointing hand's own silhouette («Shape 5») offset 5 px right, 15 px down (`motion.json` `palm_shadow`), at 56 % on the layer, still a child of the hand under the palm matte. Smooth edge following the finger, reaches the ring's lower finger. 46.4 KB.
+- (2026-10-21) User approved every draft in exports/blue (27: the hands, 🙏, 6-7, 👉👌) — copied to packs/blue/ready/. (6-7 may still be redone later.)
+- (2026-10-21) User: 198, 199, 200 (technologists at a laptop) — replace the person with a blue silhouette; then: remove the hair and the clothes too, and make ONE sticker, not three. `packs/blue/technologist/` from 200: face features and hair removed, skin and shirt → body gradient, the head's back and the ears (drawn in the shadow colour) repainted to skin first — new restyle.mjs recipe key `repaint` (per-layer source colour swap). Laptop untouched. 13.4 KB, draft.
+- (2026-10-21) User: a copy in the original 👤's manner — rounder skull, ears drawn into the head, dark outline down the neck under the ears. `packs/blue/technologist-bust/` (`build.mjs` + `head.json`): after restyle the oval head and Ears are replaced by bust.tgs's silhouette (vertices 2–14: head, ears, neck; scaled 1.22, crowns level) on a layer parented to HEAD, under the shirt, plus bust's crown rim; shoulder rims = the shirt outline in #a5d6ea trimmed (L 0–68 %, R 32–100 %). `technologist/` kept as is. 12.7 KB.
+- (2026-10-21) User approved technologist-bust («идеально») → packs/blue/ready/. Next: 221 (family photo) — the user wants to try it in OpenAI Codex; the brief is docs/prompts/codex-221-family.md (who is which layer, mouth key frames, style references).
+
+### Синий пак: 👨‍👩‍👧‍👦 семейное фото 221 (2026-10-21)
+
+- Сначала разобраны исходные пути ртов и крупные кадры. Пользователю показана таблица:
+  дети начинают с открытыми ртами и по очереди закрывают их; позднее правый ребёнок
+  смеётся одновременно с папой; у мамы меняется улыбка, отдельного широко открытого рта нет.
+  Пользователь выбрал: **«Точно сохранить мимику и тайминги оригинала»**.
+- Уточнение по первому рендеру: **«шею надо убрать … чтобы только головы были»**;
+  **толщина обводки головы и тела должна совпадать**. Итог: замкнутые головы без шей,
+  контур и блик 8 px, как исходная обводка тела.
+- `packs/blue/family/`: неизменённая копия `library/emoji/221.tgs`, `recipe.json`,
+  `heads.json`, `build.mjs`, `analyze.mjs`, `verify.mjs`, README с таблицей мимики.
+  Сборка вызывает общий restyle, затем ставит головы из 👤 с ушами и новым подбородком,
+  сохраняя исходную высоту и ключи деформации головы. Тела — исходные простые формы,
+  синие контуры/тени/блики, свой общий градиент головы и тела для каждого человека.
+- Рты: исходные линия и полость у детей/папы, исходная линия улыбки у мамы — белые;
+  цветная кожа под губами и помада исключены. Контуры, ключи, easing, transform и
+  родительские цепочки не менялись. Головы родителей позади детей.
+- `top hair 3` оказался белой вспышкой по всей семье, а не волосами. Её экспозиция
+  65–70 и transform сохранены, контур заменён снимком новых силуэтов. Корень целиком
+  восстановлен из оригинала: фото, фон, рамка, матт, вспышка и короткие жёлтые лучи
+  не меняются. Жёлтого/оранжевого в самих людях нет. Исходный голубой фон читается.
+- `exports/blue/family.tgs`: 14.2 KB, 512×512, 60 fps, 3 с. Все 180 кадров отрендерены
+  и просмотрены; точное покрытие белых ртов во всех кадрах совпало с исходными группами,
+  перекрашенными в белый. Проверены исходник, transform, геометрия тел, ключи голов,
+  обводка 8 px, отсутствие шей и палитра людей. Сравнение оригинал/синий:
+  `exports/sheets/blue-family.png`; крупные кадры, шесть полных листов и отчёт:
+  `exports/sheets/family/`. Подробности — `packs/blue/family/README.md`.
+- В `ready/` не переносился, коммитов нет. Общий restyle и UI не менялись.
+- Итоговые проверки: `bash scripts/check.sh exports/blue/family.tgs` — PASS с одной исходной
+  заметкой про матт; `npm run typecheck`, `npm test` (18 файлов, 627 тестов), `npm run build`
+  — PASS. Индекс и миниатюры библиотеки обновлены, `family` доступен в черновиках.
+
+### Синий пак: одобрение family и 🫣 069 (2026-10-21)
+
+- Пользователь одобрил family: **«Супер вообще утверждаю, получилось хорошо»**.
+  `exports/blue/family.tgs` скопирован в `packs/blue/ready/family.tgs`; утверждённые
+  головы без шеи и обводка 8 px — эталон для следующих эмоций.
+- По просьбе пользователя открыта вкладка Codex с приложением `http://localhost:5173/`.
+- 069 🫣: круг заменён головой family с ушами и округлым подбородком; руки перекрашены
+  в синий, у каждой свой градиент, контуры и блик головы/обводки рук — 8 px.
+  После первого просмотра пользователь уточнил: **«глаза не нужно, только рот»**.
+  Итоговая мимика — только белый рот: исходные тёмный край и полость, без тёплых бликов,
+  глаз и бровей. Напряжённая линия, испуганный открытый рот и дрожание — по оригиналу.
+- `packs/blue/peeking-face/`: source, recipe, head.json, build.mjs, verify.mjs, README.
+  `BODY` и весь риг/ключи сохранены, пути рук и рта не меняются. Убраны только старые
+  тени рук, рассчитанные на круг. Геометрия головы читается из family/heads.json и 👤.
+- 27.0 KB, 512×512, 60 fps, 3 с. Покрытие белого рта, включая перекрытие руками,
+  совпало с исходником во всех 180 кадрах; рот остаётся внутри головы. Палитра,
+  одинаковая обводка 8 px, отсутствие глаз/бровей, сохранение рига/путей проверены.
+  Все 180 кадров просмотрены; сравнение — `exports/sheets/blue-peeking-face.png`.
+  Черновик, в `ready/` не переносился. Общий restyle и UI не менялись; коммитов нет.
+- Итоговые проверки 069: Telegram PASS; typecheck, 18 файлов / 627 тестов и production
+  build — PASS. Вкладка Codex с приложением обновлена, 069 открыт в редакторе.
+- После просмотра пользователь одобрил 069: **«супер вообще»** — скопирован в
+  `packs/blue/ready/peeking-face.tgs`, индекс библиотеки обновлён.
+
+### Синий пак: 💩 111 и 💙 сердце (2026-10-21)
+
+- Пользователь: у 111 поменять цвет на синий, убрать мух/дым/глаза, оставить рот
+  и исходное движение из стороны в сторону. `packs/blue/poop/`: source.tgs,
+  recipe.json, build.mjs, README. Тело сохраняет объёмные градиенты, перекрашенные
+  в палитру пака, контуры #335375 и мягкие блики #8cb7d3. Улыбка белая, исходные
+  пути Group 1/2/3; внешние тени губ исключены. Все 47 ассетов удалённого дыма
+  исключены из результата. Риг, геометрия тела/рта, ключи и движения исходные. 6.2 KB.
+- Одновременно пользователь попросил взять любое сердце и просто перекрасить
+  в цвета пака. Выбрано обычное красное сердце 649 с пульсацией и поворотом:
+  `packs/blue/heart/{source.tgs,recipe.json,README.md}`; сборка общим restyle.
+  Контур #335375, заливки #44688b / #6086a7 / #7ba3c3, блики #8cb7d3 / #a5d6ea.
+  Поменялись только цвета; геометрия, матты, непрозрачность и движение сохранены.
+  Силуэт/alpha рендера побайтно совпали с оригиналом во всех 180 кадрах. 55.4 KB.
+- Оба: 512×512, 60 fps, 180 кадров / 3 с; исходники побайтно совпадают с библиотекой,
+  тёплых красок не осталось. Кадры отрендерены, крупные планы и фазы поворотов
+  просмотрены. Сравнения — `exports/sheets/blue-poop.png`, `blue-heart.png`;
+  общий лист — `blue-poop-heart.png`; отчёт — `poop-heart-verification.json`.
+  Это черновики, в `ready/` до одобрения не переносить. Общий restyle и UI не менялись,
+  коммитов нет.
+
+### Синий пак: одобрение 💩/💙 и facepalm 211–213 (2026-10-21)
+
+- Пользователь одобрил какаху и сердце («По этим двум … всё хорошо»):
+  экспорты побайтно скопированы в `packs/blue/ready/poop.tgs` и `heart.tgs`.
+- Следующая задача — один facepalm из 211/212/213. Сравнены три исходника:
+  движение одинаковое, отличаются волосы/одежда; основа — неизменённый 213.
+  `packs/blue/facepalm/{source.tgs,recipe.json,build.mjs,README.md}`.
+- Уточнение пользователя: **«Футболку надо будет убрать … Они просто силуэты …
+  просто синее тело должно быть снизу»**. Сохранена исходная форма плеч, исключены
+  воротник, шея, швы, рукав и манжета. Предплечье построено до анимированного
+  запястья; у кисти разомкнут поперечный контур запястья, общий градиент руки
+  непрерывен при поворотах. Старые тени ладони с поперечной границей исключены.
+- Голова — одобренная family без шеи, с ушами и округлым подбородком; параметры
+  читаются из `family/heads.json` и `base/bust.tgs`. Обводки головы, руки и тела —
+  8 px, #335375; блик макушки #a5d6ea, тело #44688b / #6086a7 / #7ba3c3.
+  Волосы, глаза, брови и нос исключены, сохранён белый исходный рот.
+- Риг, родители, исходные transforms, ключи рта и Splash не изменены.
+  Стык предплечья и координаты общего градиента запечены на 180 кадров,
+  без выражений/масок. Сборка проверяет исходник, риг, пути плеч/рта, родителей,
+  Telegram и все 180 непустых кадров. Просмотрены лист всех кадров и крупные фазы.
+- `exports/blue/facepalm.tgs`: 36.6 KB, 512×512, 60 fps, 3 с, Telegram PASS.
+  Сравнение — `exports/sheets/blue-facepalm.png`, все кадры —
+  `exports/sheets/facepalm/all.png`. Typecheck, 18 файлов / 627 тестов и build PASS.
+  Индекс обновлён: 32 готовых, 34 черновика, все читаются. Facepalm пока черновик.
+- Пользователь сам управляет интерфейсом; дальнейшие действия в UI не выполнялись.
+  Общие скрипты не менялись, коммитов нет.
+
+### Синий пак: 🫡 072, 🤷 214–216 и исправление facepalm (2026-10-21)
+
+- Пользователь одобрил facepalm («тоже апрувую»); он перенесён в `ready/facepalm.tgs`.
+  Затем пользователь показал две чёрточки на контуре под кистью. Причина — концы
+  раздельных обводок кисти/предплечья. Заменены одним непрерывным замкнутым контуром
+  всей руки, без концов линий на запястье. Контур запечён через два кадра с округлением
+  до 0.01; заливки кисти, детали пальцев и исходные transforms не менялись.
+  Контур следует исходной экспозиции кисти. Исправлены и экспорт, и готовая копия:
+  они побайтно совпадают. 63.4 KB, Telegram PASS; крупные кадры проверены.
+- 072: `packs/blue/saluting-face/`, неизменённый исходник 072, recipe и build.
+  Круг заменён одобренной головой 069/family, руки синие, рот исходный белый.
+  Глаз нет; их слой оставлен пустым null, потому что он анимирует положение рта.
+  Рот Group 9/10, внешние тёплые тени исключены. Исходные риг, движения руки,
+  геометрия рта и кадрирование справа сохранены. 163 кадра, 32.3 KB, Telegram PASS.
+- 🤷: `packs/blue/shrug/`, один вариант для 214–216 на основе 215.
+  По прямому указанию **губы именно из 215**: исходные Group 1/2 перекрашены в белый,
+  их геометрия/ключи не менялись. Нос — пустой анимированный родитель рта.
+  Волосы, глаза, брови, нос и старые уши исключены, голова family без шеи.
+- Уточнения пользователя по 🤷: не делать палочные руки; ориентироваться на
+  официальные синие силуэты; убрать линии перехода от тела к рукам; сделать руки
+  толще, корпус не толстым; уменьшить относительный размер головы и проработать формы.
+  Проверены официальные 👤/👥/🫂 как визуальные референсы. Итоговое тело и обе руки
+  **одна векторная заливка с общими внешними контурами**, без стыковых обводок плеч.
+  Корпус вытянут, талия уже плеч; локти округлые, предплечья мягко расширяются
+  от запястий, добавлен блик вдоль плеч по образцу 👤. Голова уменьшена на 10%,
+  её обводка компенсирует масштаб слоя и совпадает с телом (8 px).
+  Исходный жест, движения ладоней, пальцев и корпуса сохранены; новый контур
+  тела/рук запечён через три кадра, градиент ладоней продолжает градиент предплечий.
+  Без masks/expressions/merge paths. 55.4 KB, 180 кадров, Telegram PASS.
+- Помощники новых вариантов: `packs/blue/lib/silhouette.mjs` — шаблон головы,
+  градиенты, выборка ключей/матрицы и рендеры. Общий restyle не менялся.
+  Сравнения — `exports/sheets/blue-saluting-face.png`, `blue-shrug.png`;
+  все кадры/крупные планы и отчёты в одноимённых папках.
+  Источники проверены побайтно, тёплых пикселей нет во всех кадрах обоих вариантов.
+  Все 180 кадров 🤷 имеют один связный видимый силуэт; начало/конец совпадают.
+  Отчёт — `exports/sheets/new-silhouettes-verification.json`.
+- Typecheck, 18 файлов / 627 тестов, production build PASS. Индекс обновлён:
+  33 готовых, 36 черновиков, все читаются. 072 и 🤷 пока черновики до одобрения.
+  Действий в интерфейсе нет, коммитов нет.
+- (2026-10-21) User: 🤦 (facepalm) approved; 🤷 «получилось очень плохо… тело глупость, руки странные, обводка неправильная — переделать полностью». Redone by Claude: 215's own body and arms recoloured by recipe (greys → body gradient / #335375 outline / #44688b shadow; restyle `repaint.gradient` flattens a layer's gradient fills first), the approved facepalm head (packs/blue/lib/silhouette.mjs `head`) on HEAD 2, 215's lips white, cuffs merged into the forearms with one continuous outline per arm side (baked every 3 frames). 24.6 KB, PASS. Codex's version backed up outside the repo, not kept.
+
+### 🤷: обводка головы и тень запястий (2026-10-22)
+
+- Пользователь попросил сохранить текущую переделку Claude и исправить только:
+  обводку головы сделать толще под тело, тень на бывшем стыке рукава/кисти смягчить.
+- `packs/blue/shrug/build.mjs`: контур и блик головы — ширина обводки BODY,
+  делённая на собственный масштаб HEAD 2 (68.394%). Локально 11.697 px вместо 8,
+  видимая толщина — 8 px, как у тела, до общего масштаба фигуры.
+- Градиенты ладоней преобразуются из координат предплечий через обратную матрицу
+  текущего запястья, запечены через 3 кадра. У тени ладони Group 5 вместо плоской
+  заливки — тот же #44688b с плавным затуханием до alpha 0 на стыке за 32 единицы;
+  ось затухания следует морфу запястья. Нет резкой тёмной полосы на месте обшлага.
+- Все пути, layer transforms, рот и прочие слои версии Claude сохранены.
+  Проверены побайтное совпадение исходника 215, геометрия/риг/остальные слои,
+  равенство видимой ширины обводки и совпадение осей градиентов на ключах
+  с ошибкой менее 0.002. Отчёт: `exports/sheets/shrug/wrist-fix-verification.json`.
+- 28.9 KB, 180 кадров, Telegram PASS. Typecheck, 18 файлов / 627 тестов и build PASS.
+  До/после: `exports/sheets/shrug-wrist-fix.png`; обычный лист кадров обновлён.
+  Индекс/превью библиотеки обновлены. Вариант остаётся черновиком до одобрения.
+  Общие скрипты и UI не менялись, коммитов нет.
+
+### 🤷: остаточный стык запястий (2026-10-22)
+
+- Пользователь показал остаточные полосы на бывших обшлагах и попросил сделать
+  переход менее заметным. Удалён замыкающий поперечный отрезок обводки ладоней
+  (вершины 1→2); верхние вершины бывшего обшлага и концы боковых контуров теперь
+  точно следуют двум нижним вершинам движущейся ладони через её transform.
+- Тень ладони ослаблена до 60%; начало затухания отодвинуто на 14 единиц от стыка,
+  полная сила достигается к расстоянию 62. Убрана цветовая полоса на запястье.
+  Голова/её обводка, тело, губы и риг сохранены. 29.5 KB, Telegram PASS.
+  Все 180 кадров отрендерены, листы и черновик обновлены. В ready не переносился.
+
+### 🤷: кисти крупнее, плавное сужение, без пиксельного зазора (2026-10-22)
+
+- Пользователь: предыдущий стык стал заметнее, есть пиксель между кистью и рукавом;
+  увеличить кисти и сгладить резкое сужение. Кисти увеличены на 10% вокруг прежней
+  опоры; ширина их контуров обратно компенсирует масштаб. Сдвиг кистей к центру
+  на 10 единиц удерживает увеличенные пальцы в холсте во всех фазах.
+- Бывшие отдельные обшлаги и короткие угловатые участки контуров исключены:
+  у каждого предплечья одна заливка до ладони и плавные кубические стороны,
+  сопряжённые с касательными краёв ладони. Сохранены локти/их тени из исходника.
+  Заливка заходит в ладонь на 2.5 единицы, ладони рисуются поверх перекрытия.
+- Проверены все 180 кадров в 512×512: 9000 проб поперёк обоих стыков и на ±2 px
+  имеют alpha 255; прозрачных пикселей нет. Пальцы с обводкой в границах холста.
+  Остальные слои, включая тело, голову/обводку и губы, совпадают с предыдущими.
+  Отчёт: `exports/sheets/shrug/wrist-shape-verification.json`.
+- 27.2 KB, Telegram PASS. Typecheck, 18 файлов / 627 тестов, build PASS.
+  Черновик, кадры и индекс обновлены; в ready не переносился. UI не трогали.
+
+### 🤷: шире на стыке кистей с предплечьями (2026-10-22)
+
+- Пользователь: руки странно сужаются к кистям, сделать шире на стыке.
+  Расширена нижняя часть ладоней/запястья на 35%, с плавным спадом изменения
+  к пальцам. Вершины и управляющие точки кривых деформируются вместе.
+  Предплечья автоматически сопрягаются с расширенными краями ладоней.
+- Ширина стыков выросла в 1.349 / 1.343 раза; все 180 кадров и 9000 проб
+  поперёк стыков проверены — alpha 255. Голова, тело, рот и остальные слои
+  сохранены. Отчёт: `exports/sheets/shrug/wide-wrists-verification.json`.
+- 29.1 KB, Telegram PASS; черновик и превью обновлены. В ready не переносился.
+
+### 🤷: естественный изгиб 60/120 и подготовка ветки (2026-10-22)
+
+- Пользователь показал неестественную впадину при изгибе левой кисти около кадра 60,
+  слабее около 120, и попросил исправить, закоммитить и отправить в отдельную ветку.
+- Причина: фиксированная направляющая длиной 34 тянула верхнюю часть предплечья
+  внутрь, когда ладонь поворачивалась от оси предплечья. Длина теперь ограничивается
+  углом и боковым отклонением; направление касательной к ладони сохраняется.
+  Проверены крупные кадры 55/60/65 и 115/120/125. Остальные формы и движения сохранены.
+- Добавлен воспроизводимый `packs/blue/shrug/verify.mjs`: 180 кадров плюс 42
+  промежуточных позы, 11100 проб стыков (alpha 255). Максимальная впадина контура
+  относительно хорды — 0.455 единицы; тело/риг и одинаковая обводка проверены.
+  Сравнение: `exports/sheets/shrug-bend-fix.png`, отчёт — `shrug/bend-verification.json`.
+- Typecheck, 18 файлов / 627 тестов, production build PASS. Проверены 33 готовых
+  стикера и черновики shrug/saluting-face: 35 TGS, 0 ошибок. Индекс обновлён.
+  README дополнен запуском библиотеки после клонирования и командами сборки/проверки.
+- Ветка для накопленной работы: `codex/blue-pack` (исходники/готовые стикеры,
+  рецепты, сборки, библиотека с анимированными превью и совместимость скриптов с Windows).
+  Сгенерированные exports, миниатюры и исходный архив 997 эмодзи остаются вне git.
+  Сборка shrug, verify и индекс дополнительно прошли на копии только подготовленных
+  к коммиту файлов, без library/emoji и прежних exports: 33 готовых и новый черновик
+  доступны; внешние зависимости переиспользованы из установленного node_modules.

@@ -1,0 +1,10 @@
+{
+  "frames": 180,
+  "strokes": 4,
+  "finger": { "out_px": 60, "in_px": 6, "in": 0.22, "hold": 0.08, "out": 0.4, "tilt": -3 },
+  "ok": { "sway": 14, "tilt": 2, "lag": 3 },
+  "palm_shadow": { "offset": [5, 15], "opacity": 56 },
+  "strip": { "edge": [-20, -6] },
+  "bend": { "period": 14, "damping": 0.3, "degrees": 3, "base_y": 205, "tip_y": 55, "curve": 1.4, "split": [318, 385], "amp": [0.85, 1, 1.2] },
+  "view": { "scale": 100, "dx": 26, "dy": 4 }
+}

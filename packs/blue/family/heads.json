@@ -1,0 +1,17 @@
+{
+  "bust": {
+    "axis": 5.5,
+    "crown": -195.476,
+    "skullWidth": 189,
+    "chin": [5.5, 70],
+    "chinHandle": 25,
+    "jawHandle": [14, 18],
+    "keep": [4, 5, 6, 7, 8, 9, 10, 11, 12]
+  },
+  "people": [
+    { "name": "папа", "head": "head 3", "body": "body 3", "mouth": "mouth 3" },
+    { "name": "мама", "head": "head 4", "body": "body 2", "mouth": "mouth 4", "mouthGroups": ["Group 1"] },
+    { "name": "левый ребёнок", "head": "head 2", "body": "body 4", "mouth": "mouth 2" },
+    { "name": "правый ребёнок", "head": "head", "body": "body 5", "mouth": "mouth" }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "emoji": "🖐️",
+  "library": "159",
+  "colors": {
+    "#ffd75d": "#8cb7d3"
+  },
+  "fade": {
+    "Palm Side Light": 0,
+    "Palm Middle Light": 0,
+    "Thumb Big Light": 40
+  }
+}

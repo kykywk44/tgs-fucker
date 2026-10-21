@@ -1,0 +1,17 @@
+{
+  "emoji": "👍",
+  "library": "134",
+  "colors": {
+    "#ffd75d": "#8cb7d3"
+  },
+  "fade": {
+    "Light 1": 0,
+    "Light 4": 0,
+    "hand/finger 2": 45,
+    "finger1": 45,
+    "finger2": 45,
+    "finger3": 45,
+    "finger4": 45,
+    "Light 2": 45
+  }
+}

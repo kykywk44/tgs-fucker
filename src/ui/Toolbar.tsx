@@ -1,5 +1,5 @@
 import { useRef, useState, type ComponentProps, type Ref } from 'react'
-import { ChevronDown, Download, FolderOpen, Redo2, Sticker, Undo2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Download, FolderOpen, Redo2, Sticker, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip } from '@/components/ui/tooltip'
@@ -9,7 +9,12 @@ import { useShape } from '@/lib/shape-context'
 import { cn } from '@/lib/utils'
 import type { Sample } from '@/ui/samples'
 
+export type View = 'editor' | 'library'
+
 export interface ToolbarProps {
+  view: View
+  onView(view: View): void
+  onBack?(): void // the open file came from the «Эмодзи» tab
   fileName: string | null
   canUndo: boolean
   canRedo: boolean
@@ -59,6 +64,9 @@ function GroupButton({ index, hover, className, ref: outerRef, ...props }: Group
 }
 
 export function Toolbar({
+  view,
+  onView,
+  onBack,
   fileName,
   canUndo,
   canRedo,
@@ -89,19 +97,42 @@ export function Toolbar({
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-background px-4">
-      <div className="min-w-0 flex-1">
-        <h1
-          className="truncate text-body font-medium text-foreground"
-          title={fileName ?? undefined}
-        >
-          {fileName ?? 'TGS Editor'}
-        </h1>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div role="group" aria-label="Вкладка" className="inline-flex shrink-0 gap-0.5">
+          {(
+            [
+              ['editor', 'Редактор'],
+              ['library', 'Эмодзи'],
+            ] as const
+          ).map(([id, label]) => (
+            <Button
+              key={id}
+              size="compact"
+              variant={view === id ? 'secondary' : 'ghost'}
+              aria-pressed={view === id}
+              onClick={() => onView(id)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+        {view === 'editor' && onBack && (
+          <Button size="compact" variant="ghost" leadingIcon={ArrowLeft} className="shrink-0" onClick={onBack} title="Вернуться к сетке эмодзи">
+            Назад
+          </Button>
+        )}
+        {view === 'editor' && (
+          <h1 className="truncate text-body font-medium text-foreground" title={fileName ?? undefined}>
+            {fileName ?? 'TGS Editor'}
+          </h1>
+        )}
       </div>
 
       <div
         ref={groupRef}
         role="group"
         aria-label="Файл и история"
+        hidden={view !== 'editor'}
         className="relative inline-flex items-center gap-0.5"
         {...hover.handlers}
       >
@@ -163,7 +194,7 @@ export function Toolbar({
       </div>
 
       <div className="flex min-w-0 flex-1 justify-end">
-        {hasFile && (
+        {hasFile && view === 'editor' && (
           // A disabled Button ignores the pointer, so the tooltip hangs on a focusable wrapper
           // that stays hoverable. The wrapper is only a tab stop while Export is blocked.
           <Tooltip

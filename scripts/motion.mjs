@@ -17,14 +17,18 @@ import { basename, join } from 'node:path'
 import { Canvas, ROOT, encodePng, engine, framesAt, load } from './lib/sheets.mjs'
 
 const CELL = 192
-const CONVERT = join(ROOT, '.venv', 'bin', 'lottie_convert.py')
+// A venv keeps its executables in bin/ (Linux, macOS) or Scripts/ (Windows, where a .py
+// file cannot be executed directly, so the converter is always run through the venv's python).
+const VENV_BIN = join(ROOT, '.venv', existsSync(join(ROOT, '.venv', 'Scripts')) ? 'Scripts' : 'bin')
+const PYTHON = join(VENV_BIN, process.platform === 'win32' ? 'python.exe' : 'python')
+const CONVERT = join(VENV_BIN, 'lottie_convert.py')
 
 const { compileMotion } = await load('src/core/motion/compile.ts')
 const { readTgs, writeTgs, sizeKb } = await load('src/core/tgs.ts')
 const { telegramChecks } = await load('src/core/checks.ts')
 
 if (!existsSync(CONVERT)) {
-  console.error('нет .venv/bin/lottie_convert.py — сначала запустите bash scripts/check.sh (ставит python-lottie)')
+  console.error('нет lottie_convert.py в .venv — сначала запустите bash scripts/check.sh (ставит python-lottie)')
   process.exit(1)
 }
 const names = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((a) => basename(a))
@@ -92,7 +96,7 @@ for (const name of names) {
     const baseFor = async (file = 'sketch.svg') => {
       if (bases.has(file)) return bases.get(file)
       const basePath = join(ROOT, 'exports', `${name}.${basename(file, '.svg')}.base.json`)
-      execFileSync(CONVERT, [join(dir, file), basePath, '--fps', '60'], { stdio: 'pipe' })
+      execFileSync(PYTHON, [CONVERT, join(dir, file), basePath, '--fps', '60'], { stdio: 'pipe' })
       const base = JSON.parse(await readFile(basePath, 'utf8'))
       base.w = base.w || 512
       base.h = base.h || 512

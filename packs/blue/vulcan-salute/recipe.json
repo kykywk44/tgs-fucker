@@ -1,0 +1,13 @@
+{
+  "emoji": "🖖",
+  "library": "160",
+  "colors": {
+    "#ffd75d": "#8cb7d3"
+  },
+  "fade": {
+    "Mid Palm Light": 0,
+    "Thumb Palm Light": 0,
+    "Side Palm Light": 0,
+    "Thumb Light 2": 40
+  }
+}

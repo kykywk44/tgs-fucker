@@ -1,0 +1,12 @@
+{
+  "emoji": "6️⃣7️⃣",
+  "from": "blue/palms-up-together (library 129)",
+  "pose": 100,
+  "period": 36,
+  "lift": 34,
+  "tilt": 7,
+  "lag": 4,
+  "apart": 22,
+  "frames": 180,
+  "view": { "scale": 110, "dx": 2, "dy": -122 }
+}

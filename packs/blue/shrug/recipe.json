@@ -1,0 +1,14 @@
+{
+  "emoji": "🤷",
+  "library": ["214", "215", "216"],
+  "sourceLibrary": "215",
+  "remove": ["Hair", "Brows", "Eyes", "Shadow Hair", "Hair Back", "Ears"],
+  "repaint": { "BODY": { "gradient": "#dcd8d8" }, "Hand R": { "gradient": "#dcd8d8" } },
+  "colors": {
+    "#434342": "#335375", "#666663": "#335375", "#555353": "#335375", "#424242": "#335375",
+    "#dcd8d8": "body", "#bebaba": "body", "#7d7b7b": "body", "#6c6b6b": "body",
+    "#525252": "#44688b", "#525151": "#44688b", "#464545": "#44688b", "#5e5d5d": "#44688b", "#545454": "#44688b",
+    "#ffcf00": "body", "#ce7300": "#335375",
+    "#fdcd00": "body", "#f6ad00": "#44688b", "#fde07f": "#8cb7d3", "#cd7100": "#335375"
+  }
+}

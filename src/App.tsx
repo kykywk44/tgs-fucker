@@ -6,11 +6,12 @@ import { readTgs, writeTgs, type Lottie } from '@/core/tgs'
 import { Preview } from '@/preview/Preview'
 import { Checks } from '@/ui/Checks'
 import { DropZone, useFilePicker } from '@/ui/DropZone'
+import { Library } from '@/ui/Library'
 import { useColorSession } from '@/ui/colorSession'
 import { Palette } from '@/ui/Palette'
 import { Parts } from '@/ui/Parts'
 import { fetchSample, SAMPLES, type Sample } from '@/ui/samples'
-import { Toolbar } from '@/ui/Toolbar'
+import { Toolbar, type View } from '@/ui/Toolbar'
 import { useHistory, useUndoShortcuts } from '@/ui/useHistory'
 
 // readTgs only parses JSON, so a valid JSON file that is not an animation gets through.
@@ -79,6 +80,9 @@ function App() {
   // The live preview while a swatch popover is open; null when nothing is being picked.
   const [previewAnim, setPreviewAnim] = useState<Lottie | null>(null)
   const [checks, setChecks] = useState<Check[]>([])
+  const [view, setView] = useState<View>('editor')
+  // The open file came from the «Эмодзи» tab: the toolbar offers the way back.
+  const [fromLibrary, setFromLibrary] = useState(false)
 
   useUndoShortcuts(history)
 
@@ -108,17 +112,25 @@ function App() {
     },
     [reset],
   )
-  const picker = useFilePicker(handleFile)
+  // A file from anywhere but the «Эмодзи» tab.
+  const openFile = useCallback(
+    (file: File) => {
+      setFromLibrary(false)
+      void handleFile(file)
+    },
+    [handleFile],
+  )
+  const picker = useFilePicker(openFile)
 
   const handleSample = useCallback(
     async (sample: Sample) => {
       try {
-        await handleFile(await fetchSample(sample))
+        openFile(await fetchSample(sample))
       } catch (err) {
         setError(`Не удалось открыть образец: ${errorMessage(err)}`)
       }
     },
-    [handleFile],
+    [openFile],
   )
 
   // The banner is not dismissible, so a successful edit clears a stale error.
@@ -196,6 +208,9 @@ function App() {
   return (
     <div className="flex h-svh flex-col bg-background text-foreground">
       <Toolbar
+        view={view}
+        onView={setView}
+        onBack={fromLibrary ? () => setView('library') : undefined}
         fileName={fileName}
         canUndo={history.canUndo}
         canRedo={history.canRedo}
@@ -209,43 +224,55 @@ function App() {
       />
       {picker.input}
 
-      <DropZone hasFile={present !== null} onFile={handleFile} error={error}>
-        {present && shown && (
-          // Below 1024 px the whole area scrolls and the inspector sits under the canvas; from
-          // 1024 px the canvas and the inspector scroll on their own.
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-            {/* m-auto centres the preview and, unlike justify-center, never pushes it off the
-                left edge when the pane is narrower than the 512 px stage. */}
-            <main className="flex flex-none overflow-auto p-6 lg:min-w-0 lg:flex-1">
-              <div className="m-auto">
-                <Preview key={fileSeq} json={json} totalFrames={shown.op - shown.ip} />
-              </div>
-            </main>
-            <aside
-              ref={inspectorRef}
-              aria-label="Инспектор"
-              className="flex shrink-0 flex-col gap-6 border-t border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l"
-            >
-              {parts && parts.length > 0 && (
-                <Parts
-                  key={`parts-${fileSeq}`}
+      <div hidden={view !== 'library'} className="flex min-h-0 flex-1 flex-col">
+        <Library
+          active={view === 'library'}
+          onOpen={(file) => {
+            setView('editor')
+            setFromLibrary(true)
+            void handleFile(file)
+          }}
+        />
+      </div>
+      {view === 'editor' && (
+        <DropZone hasFile={present !== null} onFile={openFile} error={error}>
+          {present && shown && (
+            // Below 1024 px the whole area scrolls and the inspector sits under the canvas; from
+            // 1024 px the canvas and the inspector scroll on their own.
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+              {/* m-auto centres the preview and, unlike justify-center, never pushes it off the
+                  left edge when the pane is narrower than the 512 px stage. */}
+              <main className="flex flex-none overflow-auto p-6 lg:min-w-0 lg:flex-1">
+                <div className="m-auto">
+                  <Preview key={fileSeq} json={json} totalFrames={shown.op - shown.ip} />
+                </div>
+              </main>
+              <aside
+                ref={inspectorRef}
+                aria-label="Инспектор"
+                className="flex shrink-0 flex-col gap-6 border-t border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l"
+              >
+                {parts && parts.length > 0 && (
+                  <Parts
+                    key={`parts-${fileSeq}`}
+                    anim={present.anim}
+                    parts={parts}
+                    session={colorSession}
+                    onTextCommit={handleTextCommit}
+                  />
+                )}
+                <Palette
+                  key={`palette-${fileSeq}`}
                   anim={present.anim}
-                  parts={parts}
+                  families={present.families}
                   session={colorSession}
-                  onTextCommit={handleTextCommit}
                 />
-              )}
-              <Palette
-                key={`palette-${fileSeq}`}
-                anim={present.anim}
-                families={present.families}
-                session={colorSession}
-              />
-              <Checks checks={checks} />
-            </aside>
-          </div>
-        )}
-      </DropZone>
+                <Checks checks={checks} />
+              </aside>
+            </div>
+          )}
+        </DropZone>
+      )}
     </div>
   )
 }

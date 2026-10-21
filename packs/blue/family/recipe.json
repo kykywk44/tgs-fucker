@@ -1,0 +1,36 @@
+{
+  "emoji": "👨‍👩‍👧‍👦",
+  "library": "221",
+  "frame": 150,
+  "remove": [
+    "hair", "hair 2", "hair 3", "back hair", "top hair", "hair back", "hair back 2",
+    "left eye", "right eye", "left eye 2", "right eye 2", "right eye 3", "right eye 4", "right eye 5", "left eye 3",
+    "brow", "brow 2", "brow 3", "brow 4", "brow 5", "brow 6", "brow 7", "brow 8",
+    "nose", "nose 2", "nose 3", "nose 4",
+    "left ear", "right ear 3", "right ear 4", "right ear 2", "left ear 2"
+  ],
+  "colors": {
+    "#ffcb00": "body",
+    "#ffad00": "#44688b",
+    "#ffac00": "#44688b",
+    "#e67000": "#335375",
+    "#090935": "#335375",
+    "#5555ff": "#a5d6ea",
+    "#060635": "#44688b",
+    "#3a0003": "#335375",
+    "#440205": "#44688b",
+    "#ff3943": "#a5d6ea",
+    "#68045f": "#335375",
+    "#5e0351": "#44688b",
+    "#f57eea": "#a5d6ea",
+    "#00332e": "#335375",
+    "#003530": "#44688b",
+    "#04a39f": "#a5d6ea"
+  },
+  "gradients": [
+    ["head 3", "body 3"],
+    ["head 4", "body 2"],
+    ["head 2", "body 4"],
+    ["head", "body 5"]
+  ]
+}

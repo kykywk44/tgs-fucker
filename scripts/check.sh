@@ -9,13 +9,30 @@ cd "$ROOT" || exit 1
 
 LOTTIE_VERSION="0.7.2"
 VENV="$ROOT/.venv"
-PY="$VENV/bin/python"
-CHECKER="$VENV/bin/tgs_check.py"
 
-if [ ! -x "$PY" ]; then
+# A venv keeps its executables in bin/ (Linux, macOS) or Scripts/ (Windows).
+venv_bin() {
+  if [ -d "$VENV/Scripts" ]; then echo "$VENV/Scripts"; else echo "$VENV/bin"; fi
+}
+
+if [ ! -d "$VENV/bin" ] && [ ! -d "$VENV/Scripts" ]; then
+  # On Windows `python3` may be the Microsoft Store stub, so try each name for real.
+  SYS_PY=""
+  for cand in python3 python py; do
+    if "$cand" -c "import sys; sys.exit(0 if sys.version_info >= (3, 8) else 1)" >/dev/null 2>&1; then
+      SYS_PY="$cand"
+      break
+    fi
+  done
+  [ -n "$SYS_PY" ] || { echo "error: python 3 not found (tried python3, python, py)" >&2; exit 1; }
   echo "Creating $VENV"
-  python3 -m venv "$VENV" || { echo "error: python3 -m venv $VENV failed" >&2; exit 1; }
+  "$SYS_PY" -m venv "$VENV" || { echo "error: $SYS_PY -m venv $VENV failed" >&2; exit 1; }
 fi
+
+BIN="$(venv_bin)"
+if [ -x "$BIN/python.exe" ]; then PY="$BIN/python.exe"; else PY="$BIN/python"; fi
+CHECKER="$BIN/tgs_check.py"
+[ -x "$PY" ] || { echo "error: no python in $BIN; delete $VENV and rerun" >&2; exit 1; }
 
 # Install lottie once; skip pip when the pinned version is already present.
 if ! "$PY" -c "import sys, importlib.metadata as md; sys.exit(0 if md.version('lottie') == '$LOTTIE_VERSION' else 1)" 2>/dev/null; then

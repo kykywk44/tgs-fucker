@@ -1,0 +1,15 @@
+{
+  "emoji": "👎",
+  "library": "135",
+  "colors": {
+    "#ffd75d": "#8cb7d3"
+  },
+  "fade": {
+    "arm": 0,
+    "base 2": 45,
+    "finger1": 45,
+    "finger2": 45,
+    "finger3": 45,
+    "finger4": 45
+  }
+}

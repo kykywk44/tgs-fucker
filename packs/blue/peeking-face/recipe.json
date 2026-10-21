@@ -1,0 +1,13 @@
+{
+  "emoji": "🫣",
+  "library": "069",
+  "frame": 0,
+  "remove": ["Shadow L", "Shadow R", "Brows", "Eye L", "Eye R", "Eyeball L", "Eyeball R"],
+  "colors": {
+    "#e76900": "#335375",
+    "#f8c729": "body",
+    "#fddc66": "#8cb7d3",
+    "#f3ac19": "#44688b"
+  },
+  "gradients": [["BODY"], ["Hand L"], ["Hand R"]]
+}

@@ -4,3 +4,7 @@ dist/
 .superpowers/
 exports/
 .DS_Store
+# Telegram's emoji (library/README.md says how to restore) and what scripts/library.mjs builds from them
+library/emoji/
+library/thumbs/
+library/index.json

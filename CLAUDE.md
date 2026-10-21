@@ -27,7 +27,7 @@ bash scripts/check.sh [file.tgs]   # валидатор Telegram (python-lottie 
 node scripts/motion.mjs <name>     # stickers/<name>/{sketch.svg,motion.json} → exports/<name>.tgs
 ```
 
-Нужны Node 22, npm, python3.
+Нужны Node 22, npm, python 3 (на Windows — Git Bash; скрипты сами находят `python3`/`python`/`py` и `.venv/Scripts`).
 
 ## Ограничения Telegram
 
@@ -45,6 +45,8 @@ node scripts/motion.mjs <name>     # stickers/<name>/{sketch.svg,motion.json} �
 - `src/ui/`, `src/components/ui/` — Tailwind v4 + shadcn (Base UI) + Fluid Functionalism; `src/ui/samples.ts` строит меню «Образцы» из `samples/*.tgs`.
 - `samples/` — 17 стикеров пользователя (тесты на них пропускаются, если файлов нет; ядро тестируется на фикстурах `src/core/__fixtures__/`).
 - `gun_refs/` — чужие `.tgs` как источники эффектов (`sources` в `motion.json`: вспышки, дым, пар из CoffeeSticker).
+- `library/emoji/` — 997 анимированных эмодзи Telegram (не в git, см. `library/README.md`); номер файла = ID во вкладке «Эмодзи» (`src/ui/Library.tsx`, индекс и превью — `node scripts/library.mjs`). Пользователь выделяет пачку и присылает ID — работаем по номерам.
+- `packs/blue/` — синий пак (человечки-силуэты); `base/` — 4 исходных стикера Telegram 👤 👥 🫂 🗣, стиль и цвета в `packs/blue/README.md`; `<имя>/{source.tgs,recipe.json}` → `node scripts/restyle.mjs blue/<имя>`; одобренные — в `ready/`.
 - `stickers/<name>/` — `sketch.svg`, `motion.json`, `variants/`; у pistol ещё `build_sketch.py`, `style.json`, `camera.json`, `view.json`, `fx/`.
 - `exports/`, `dist/`, `node_modules/`, `.venv/` — в `.gitignore`, это артефакты.
 
