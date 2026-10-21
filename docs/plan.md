@@ -1013,3 +1013,8 @@ A static sketch (SVG with named groups, via python-lottie) + `motion.json` → a
 ### Task 11e: The slow-slide pistol is the baseline (2026-10-20)
 - `motion.json` is now written by `stickers/pistol/variants/make.py`: 5 shots (two on the first turn, three on the second), a seamless swing between the turns (release and attack overlap with the same ease), the slide back in 3 frames / held 3 / forward in 5 with an overshoot, shells from the top of the ejection port — three in front, two (`back_shell_1..2`, drawn under the gun) behind — and one wisp of steam from the top of the muzzle after the last shot (`coffee_one_rise`, no pause between growing and clearing). Trigger highlight dimmed (#55524F). `sketch.svg` holds all shells; `sketch-fx.svg` is gone. 46.3 KB.
 - Variant `camera`: the same with another camera from `stickers/pistol/camera.json` — `fov` (angle of view, baseline ≈54°; focal = 355.5 / tan(fov/2) gun units) and `turn` (turn amplitude ×). Default 80° / ×1.35.
+
+### Task 11f: Colours on turns, mixed camera, fit to the canvas (2026-10-20)
+- The slide highlight no longer runs down the rear edge and the sights have no light dots (on a turn they read as a light grey back face and light rims; checked in lottie-web via `exports/view.html` on the dev server).
+- `rig.focal` may be `[seconds, focal]` points; variant `camera-mixed`: the turn towards the viewer (the first) with `camera.json` `mixed.towards` (80°, ×1.35), the turn away with `mixed.away` (54°, ×1), the camera moving during the swing.
+- `MotionSpec.view` (null layer) + `scripts/fit.mjs`: each build as large as fits with 8 px margin (baseline 107.8 %, camera-mixed 101.6 %, camera 96.3 % — the wide turn spans the canvas). The muzzle flash is about a third shorter so it fits.
