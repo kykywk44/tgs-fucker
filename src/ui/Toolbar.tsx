@@ -96,8 +96,8 @@ export function Toolbar({
   const blocked = exportBlockedReasons.length > 0
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-background px-4">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-2 sm:gap-4 sm:px-4">
+      <div className="flex min-w-0 shrink-0 items-center gap-1 sm:flex-1 sm:shrink sm:gap-3">
         <div role="group" aria-label="Вкладка" className="inline-flex shrink-0 gap-0.5">
           {(
             [
@@ -118,11 +118,11 @@ export function Toolbar({
         </div>
         {view === 'editor' && onBack && (
           <Button size="compact" variant="ghost" leadingIcon={ArrowLeft} className="shrink-0" onClick={onBack} title="Вернуться к сетке эмодзи">
-            Назад
+            <span className="max-sm:sr-only">Назад</span>
           </Button>
         )}
         {view === 'editor' && (
-          <h1 className="truncate text-body font-medium text-foreground" title={fileName ?? undefined}>
+          <h1 className="truncate text-body font-medium text-foreground max-sm:hidden" title={fileName ?? undefined}>
             {fileName ?? 'TGS Editor'}
           </h1>
         )}
@@ -137,13 +137,13 @@ export function Toolbar({
         {...hover.handlers}
       >
         <FluidHoverHighlight hover={hover} className={shape.bg} />
-        <GroupButton index={0} hover={hover} leadingIcon={FolderOpen} onClick={onOpen}>
-          Открыть
+        <GroupButton index={0} hover={hover} leadingIcon={FolderOpen} onClick={onOpen} className="max-sm:px-2.5" aria-label="Открыть">
+          <span className="max-sm:sr-only">Открыть</span>
         </GroupButton>
         {hasSamples && (
           <Popover open={samplesOpen} onOpenChange={setSamplesOpen}>
             <PopoverTrigger
-              render={<GroupButton index={1} hover={hover} leadingIcon={Sticker} trailingIcon={ChevronDown} />}
+              render={<GroupButton index={1} hover={hover} leadingIcon={Sticker} trailingIcon={ChevronDown} className="max-sm:hidden" />}
               title="Открыть стикер из папки samples"
             >
               Образцы
@@ -211,8 +211,8 @@ export function Toolbar({
                 shape.button,
               )}
             >
-              <Button variant="primary" leadingIcon={Download} disabled={blocked} onClick={onExport}>
-                Экспорт
+              <Button variant="primary" leadingIcon={Download} disabled={blocked} onClick={onExport} className="max-sm:px-2.5" aria-label="Экспорт">
+                <span className="max-sm:sr-only">Экспорт</span>
               </Button>
             </span>
           </Tooltip>

@@ -1,0 +1,6 @@
+{
+  "emoji": "🤭", "library": "070", "frame": 0,
+  "remove": ["Eyes", "Reds", "Shadow"],
+  "colors": {"#e66700":"#335375", "#e76900":"#335375", "#f8c729":"body", "#fddc66":"#8cb7d3", "#f3ac19":"#44688b"},
+  "gradients": [["Head"],["Hand 2"]]
+}

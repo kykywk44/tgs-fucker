@@ -21,7 +21,12 @@ const find = (ls,nm) => ls.find(l => l.nm === nm)
 const firstPath = l => walk(l.shapes).find(x => x.ty === 'sh').ks
 const noShapes = ({ shapes, ...rest }) => rest
 
-assert.deepEqual(blue.layers,source.layers,'Изменены фон, рамка или их анимация')
+const expectedRoot = structuredClone(source.layers)
+const backgroundColor = [1,3,5].map(i => parseInt(recipe.photoBackground.slice(i,i+2),16)/255)
+assert.equal(recipe.photoBackground.toLowerCase(),'#a2a2a2')
+for (const paint of walk(find(expectedRoot,'background').shapes).filter(x => x.ty === 'fl'))
+  paint.c = { a: 0, k: [...backgroundColor,1] }
+assert.deepEqual(blue.layers,expectedRoot,'Кроме цвета фона изменена рамка или анимация фотографии')
 for (const field of ['ip','op','fr','w','h']) assert.equal(blue[field],source[field])
 assert.deepEqual(layers.map(l => l.nm).sort(),originalLayers.filter(l => !recipe.remove.includes(l.nm)).map(l => l.nm).sort())
 for (const l of layers) {
@@ -93,6 +98,6 @@ actual.drop(); expected.drop()
 const report = { bytes: bytes.length, kb: +(bytes.length/1024).toFixed(1), frames: 180,
   fps: blue.fr, size: [blue.w,blue.h], sourceSha256: createHash('sha256').update(sourceBytes).digest('hex'),
   palette: [...palette].sort(), identicalMouthMasks: 180, originalTransforms: true,
-  originalBackgroundAndFrame: true, headAndBodyStroke: 8, noNecks: true }
+  photoBackground: recipe.photoBackground, originalFrameAndRootMotion: true, headAndBodyStroke: 8, noNecks: true }
 await writeFile(join(ROOT,'exports/sheets/family/verification.json'),JSON.stringify(report,null,2)+'\n')
 console.log(JSON.stringify(report))

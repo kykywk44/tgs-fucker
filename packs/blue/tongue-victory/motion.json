@@ -1,0 +1,130 @@
+{
+  "hand": {
+    "pose": 0,
+    "middle_tilt": 17,
+    "gap": [
+      268,
+      215
+    ],
+    "scale": 70,
+    "at": [
+      38,
+      215
+    ],
+    "tilt": 0,
+    "index_root": [
+      207,
+      206
+    ],
+    "knuckle": [
+      258,
+      206
+    ],
+    "knuckle_line": {
+      "group": "Group 3",
+      "end": 66
+    },
+    "index_tilt": 14,
+    "flatten": {
+      "layers": [
+        "Shape Layer 6",
+        "Palm Shad 2"
+      ],
+      "x": [
+        170,
+        290
+      ],
+      "y": 214
+    },
+    "middle_highlight": {
+      "layer": "Palm Light 2",
+      "x": [
+        222,
+        300
+      ],
+      "to": [
+        300,
+        214
+      ]
+    },
+    "hand_fills": [
+      "With Finger 4"
+    ],
+    "crotch": {
+      "from": [
+        228,
+        186
+      ],
+      "to": [
+        228,
+        186
+      ],
+      "depth": 0
+    },
+    "index_outer_end": [
+      183,
+      226
+    ],
+    "middle_outer_end": [
+      287,
+      212
+    ],
+    "no_wrist": {
+      "body": "Palm Shad 2",
+      "cut": 395,
+      "round": 42,
+      "drop": [
+        "Wrist stroke",
+        "Wrist Light"
+      ]
+    }
+  },
+  "tongue": {
+    "outline": "#335375",
+    "dark": "#44688b",
+    "stops": [
+      [
+        0,
+        "#8cb7d3"
+      ],
+      [
+        1,
+        "#c4e3f1"
+      ]
+    ],
+    "scale": 80
+  },
+  "face": {
+    "scale": 73,
+    "y": 182
+  },
+  "meet": {
+    "in": [
+      46,
+      64
+    ],
+    "out": [
+      148,
+      170
+    ],
+    "head_x": 36,
+    "hand_x": -215,
+    "hand_y": 34,
+    "hand_tilt": -10
+  },
+  "jiggle": {
+    "period": 12,
+    "damping": 0.25,
+    "degrees": 7,
+    "index": 1,
+    "middle": 1.2,
+    "tolerance": 0.3
+  },
+  "grow": {
+    "scale": 103,
+    "from": [
+      421,
+      8
+    ]
+  }
+}

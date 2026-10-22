@@ -1,0 +1,6 @@
+{
+  "emoji":"🥱", "library":["089","090"], "frame":0,
+  "remove":["eye1","eye2","Shadow Hand"],
+  "colors":{"#e76900":"#335375","#f8c729":"body","#fddc66":"#8cb7d3","#f3ac19":"#44688b"},
+  "gradients":[["body"],["hand"]]
+}

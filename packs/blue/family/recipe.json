@@ -2,6 +2,7 @@
   "emoji": "👨‍👩‍👧‍👦",
   "library": "221",
   "frame": 150,
+  "photoBackground": "#a2a2a2",
   "remove": [
     "hair", "hair 2", "hair 3", "back hair", "top hair", "hair back", "hair back 2",
     "left eye", "right eye", "left eye 2", "right eye 2", "right eye 3", "right eye 4", "right eye 5", "left eye 3",

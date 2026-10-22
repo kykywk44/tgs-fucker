@@ -46,6 +46,7 @@ node scripts/motion.mjs <name>     # stickers/<name>/{sketch.svg,motion.json} �
 - `samples/` — 17 стикеров пользователя (тесты на них пропускаются, если файлов нет; ядро тестируется на фикстурах `src/core/__fixtures__/`).
 - `gun_refs/` — чужие `.tgs` как источники эффектов (`sources` в `motion.json`: вспышки, дым, пар из CoffeeSticker).
 - `library/emoji/` — 997 анимированных эмодзи Telegram (не в git, см. `library/README.md`); номер файла = ID во вкладке «Эмодзи» (`src/ui/Library.tsx`, индекс и превью — `node scripts/library.mjs`). Пользователь выделяет пачку и присылает ID — работаем по номерам.
+- `server/remote.ts`, `scripts/remote.mjs` — доступ с телефона через Cloudflare-туннель (пароль `SITE_PASSWORD`) и кнопка «В Telegram» → бот V2 (`docs/remote.md`).
 - `packs/blue/` — синий пак (человечки-силуэты); `base/` — 4 исходных стикера Telegram 👤 👥 🫂 🗣, стиль и цвета в `packs/blue/README.md`; `<имя>/{source.tgs,recipe.json}` → `node scripts/restyle.mjs blue/<имя>`; одобренные — в `ready/`.
 - `stickers/<name>/` — `sketch.svg`, `motion.json`, `variants/`; у pistol ещё `build_sketch.py`, `style.json`, `camera.json`, `view.json`, `fx/`.
 - `exports/`, `dist/`, `node_modules/`, `.venv/` — в `.gitignore`, это артефакты.

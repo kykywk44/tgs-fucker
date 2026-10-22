@@ -1287,3 +1287,210 @@ A static sketch (SVG with named groups, via python-lottie) + `motion.json` → a
   Сборка shrug, verify и индекс дополнительно прошли на копии только подготовленных
   к коммиту файлов, без library/emoji и прежних exports: 33 готовых и новый черновик
   доступны; внешние зависимости переиспользованы из установленного node_modules.
+
+### Family: серый фон; новая рука из ZIP (2026-10-22)
+
+- По просьбе пользователя фон фотографии family заменён на `#A2A2A2`.
+  Цвет вынесен в `recipe.photoBackground`; сборка меняет только заливку корневого
+  слоя `background`. Проверка подтверждает неизменность остальных корневых слоёв,
+  рамки/движений и совпадение белых ртов во всех 180 кадрах. Обновлена одобренная
+  копия `ready/family.tgs`, 14.2 KB.
+- Из архива `gifts_emoji_by_gifts_changes_bot_AgADQYMAAuJoeEs.tgs.zip` создан
+  `gift-hand/`: синий жест рукой без банта/манжеты, металлических бликов и звёзд.
+  Сохранены исходные закрытые заливки, линии пальцев, морфинг и родительский риг;
+  градиент един для всех частей, обводка 8 px в цветах пака. 22.3 KB, 180 кадров.
+- `gift-hand/verify.mjs` сверяет геометрию/риг с исходником, палитру/обводку и все
+  180 кадров на обрезание краями холста. Крупные позы и общий лист просмотрены.
+  Новый эмодзи остаётся в черновиках «Жест рукой · синий», индекс обновлён.
+- Оба TGS прошли Telegram checker. Typecheck, 36 файлов / 1254 теста и build PASS.
+  UI не трогали; изменения локальные, новых коммитов и push не было.
+
+### Рука из ZIP: объём в стиле остальных рук (2026-10-22)
+
+- Пользователь подтвердил движение, но попросил добавить тени и хайлайты:
+  плоская версия слишком простая. Сравнены готовые middle-finger, victory-hand
+  и raised-hand. Добавлены светлые края пальцев и ладони `#a5d6ea`, тени между
+  пальцами, у большого пальца и по краю ладони `#335375`.
+- Шесть светлых и двенадцать теневых деталей следуют исходным анимированным
+  путям и transform; золотые блики/полосы и белые звёзды не возвращались.
+  Матт по прежнему силуэту убирает выступавшие за низ ладони мягкие тени.
+- Проверены исходные контуры, риг, пути света/теней, палитра и все 180 кадров:
+  обрезания и выхода теней за контур нет. 44.2 KB, Telegram PASS.
+  Черновик и индекс обновлены. Typecheck, тесты и production build PASS.
+
+### Рука из ZIP: убрать мягкие затемнения (2026-10-22)
+
+- Пользователь: затемнения слишком гладкие по сравнению с другими руками;
+  между пальцами и снизу ладони их убрать, хайлайты устраивают.
+- Удалены все 11 мягких теней между пальцами и на ладони. Единственная тень
+  у большого пальца заменена плоской заливкой `#44688b`, без размытого перехода.
+  Все шесть хайлайтов побайтно совпадают с предыдущей версией JSON.
+- Геометрия и анимация прежние; проверены все 180 кадров. 38.6 KB, Telegram PASS.
+  Черновик и индекс обновлены, в ready не переносился.
+
+### Одобрение пака и крупные головы 070/089/082/035 (2026-10-22)
+
+- Пользователь одобрил все существовавшие варианты, кроме technologist.
+  Добавлены ready-копии gift-hand, saluting-face, shrug; оба technologist остаются
+  черновиками, прежний ready/technologist-bust исключён. В готовом паке 35 файлов.
+- Четыре новых черновика: 070 — хихикает за синей рукой, 089 — зевает с Z из 090,
+  082 — стиснутые белые зубы и стекающие капли, 035 — шапка и свистелка с конфетти.
+  Головы используют одобренный контур 069 размером 300×378.29418, без шеи и глаз.
+  Риги, морфинг ртов и движения рук исходные. Капли 082 перенесены к более узкому
+  контуру; шапка 035 сдвинута внутрь, макушка не обрезается при верхнем прыжке.
+- По замечанию пользователя в 089 добавлена белая заливка самой полости рта,
+  вместе с верхним краем: Group 1 + Group 2. Z из 090 стали белыми с синим контуром;
+  их непрозрачность привязана к фактическому раскрытию рта (при закрытом букв нет).
+- Проверка `lib/verify-large-faces.mjs`: неизменённые исходники, риги/контуры ртов,
+  пути рук и аксессуаров, отсутствие глаз, согласованность Z с зевком и 180 кадров
+  каждой головы без обрезания. Все 7 новых/перенесённых TGS прошли Telegram checker.
+  Typecheck, 36 файлов / 1254 теста и production build PASS. Индекс обновлён:
+  35 готовых, 41 черновик. Новые четыре пока в черновиках, UI не трогали.
+
+### 096/075/045/074 и полная белая заливка губ 035 (2026-10-22)
+
+- Пользователь одобрил предыдущие 070/089/082/035 («супер вообще») и запросил ещё
+  четыре. Предыдущие варианты перенесены в ready: теперь 39 готовых, technologist
+  по-прежнему исключён. По скриншоту 035 исправлена пропущенная основная заливка
+  губ Group 5: теперь группы 1–5 белые. Ready-копия и превью обновлены, 22.7 KB.
+- 096: крупная синяя голова без глаз, белый рот, исходная синяя рука. Бегунок и
+  звенья молнии сохранены целиком в оригинальном металлическом цвете. 25.4 KB.
+- 075: синяя голова без глаз/бровей, белая мимика, растущий синий нос. Заливка
+  основания носа согласована с градиентом головы на каждом кадре. 21.7 KB.
+- 045: синяя голова и руки, натягивающие белую улыбку. Сохранены и общий риг,
+  и дополнительный анимированный поворот группы головы. 5.3 KB.
+- 074: верх головы и уши из 069; нижние 17 узлов и управляющие точки переносят
+  исходные смещения растекания, с компенсацией ширины головы. Исходные времена,
+  easing, наклоны и белый рот сохранены; цикл замкнут. 7.3 KB.
+- Общая проверка расширена до 8 больших голов: неизменённые исходники/риги,
+  геометрия ртов/рук/аксессуаров, контроль морфинга 074 и 180 кадров каждого без
+  обрезания. Пять TGS (четыре новых и 035) прошли Telegram checker.
+  Typecheck, 36 файлов / 1254 теста и production build PASS. Новые четыре остаются
+  в черновиках, индекс обновлён: 39 готовых, 45 черновиков. UI не трогали.
+
+### Одобрение 096/075/045/074 и статичный L-жест (2026-10-22)
+
+- Пользователь: «Супер, все добавляй». Четыре последние головы перенесены в
+  ready, всего 43 готовых, оба technologist по-прежнему исключены.
+- Запрошен L-жест в стиле W/gift-hand: сначала только статичный рисунок,
+  позже быстрое качание влево/вправо. Создан `loser-hand/`: указательный вверх,
+  большой вправо, три согнутых пальца; единая ладонь, толстая синяя обводка,
+  узкие светлые хайлайты и одна плоская тень. Кубические пути редактируются
+  в build.mjs, JSON рисунка сохранён для редактора.
+- Статичный TGS 1.4 KB, 180 идентичных кадров; проверены отсутствие ключей,
+  одинаковый рендер на 8 кадрах и Telegram checker. В ready не переносился.
+  PNG с прозрачностью и превью — `exports/sheets/loser-hand/`.
+  Индекс обновлён: 43 готовых, 46 черновиков. UI не трогали.
+
+### L: исходная анатомия 145 и покачивание 143 (2026-10-22)
+
+- Пользователь отверг ручную отрисовку и указал на готовую L-позу в 145;
+  запросил взять её и анимировать как 143. Просмотрены 137/145/143 и крупные
+  фазы 145; выбрана поза кадра 70 (три согнутых пальца, большой в сторону).
+- Ручной рисунок заменён полностью. 145 перекрашивается общим restyle пака,
+  затем замораживается в кадре 70; невидимые в этой фазе слои исключены.
+  Исходные контуры/складки/пальцы сохранены. На всю позу перенесены три null-слоя
+  рига 143 без изменения ключей/easing, включая вращение и движение вверх-вниз.
+- Сравнение замороженной позы с кадром исходника: 13 каналов на границе сглаживания,
+  максимальная видимая разница 1.008/255. Внутри позы нет ключей анимации;
+  180 кадров общего движения проверены, минимальный запас до края 13 px.
+  8.4 KB, Telegram PASS. Typecheck, 36 файлов / 1254 теста и build PASS.
+  Черновик и индекс обновлены; в ready L не переносился, UI не трогали.
+
+### L: упругость указательного и большого пальца (2026-10-22)
+
+- Пользователь попросил добавить живости пальцам при махах: указательному как
+  в 143, большому слабее. Перенесены исходные смещения кончика Index 4 из 143
+  с его ключами/easing; деформация плавно затухает к основанию. Большой получает
+  повёрнутый в свою ось изгиб с амплитудой 30% от указательного.
+- Деформируются согласованно 21 путь: контуры, заливки, блики, тени и примыкающие
+  участки ладони. Риг покачивания целиком и три согнутых пальца сохранены.
+  Величины задаются `recipe.fingerFlex`, алгоритм — `loser-hand/finger-flex.mjs`.
+- Проверены ключи/нейтральная поза/основания и амплитуды: указательный в кадре 36
+  смещается как в 143 на [43.547, 23.144], большой — [-6.943, 13.064], отношение 0.3.
+  Все 180 кадров без обрезания, запас 15 px. 21.3 KB, Telegram PASS.
+  Typecheck, 36 файлов / 1254 теста и build PASS. Черновик/индекс обновлены,
+  в ready L не переносился. Сравнение — `loser-hand/finger-flex-compare.png`.
+
+### Одобрение L и архив для Telegram (2026-10-22)
+
+- Пользователь одобрил L и попросил собрать весь готовый пак, кроме technologist.
+  L перенесён в ready; всего 44 эмодзи, оба technologist остаются вне ready.
+- `scripts/package-blue.py` собирает `exports/blue-pack.zip`: 44 исходных TGS
+  без перекодирования, инструкция, предложенные привязки к обычным эмодзи,
+  CSV с размерами и SHA-256. Проверены размеры/частота/длительность, лимит 64 КиБ,
+  целостность ZIP и точное совпадение распакованного содержимого с ready.
+- Индекс библиотеки обновлён: 44 готовых, 46 черновиков, нечитаемых файлов нет.
+
+### Локальный Telegram pack bot (2026-10-22)
+
+- По просьбе пользователя добавлен `scripts/telegram-pack-bot.py` без сторонних
+  библиотек, Windows-запуск `scripts/start-telegram-bot.cmd`, `.env.example`
+  и инструкция `docs/telegram-pack-bot.md`. `.env` и Python-кэш исключены из Git.
+- Бот читает ZIP/manifest.csv, проверяет хэши/лимиты, назначает привязки с учётом
+  составных эмодзи. Диалог: эмодзи/стикеры/оба → название → ссылка → публикация.
+  `user_id` владельца — аккаунт пользователя, доступ привязывается кодом из консоли.
+- Ссылки получают обязательный суффикс `_by_<bot_username>`. Загруженные file_id
+  и параметры публикации сохраняются локально: второй тип использует тот же кэш,
+  повтор после сетевого сбоя проверяет уже созданный набор и избегает дубликатов.
+- 10 офлайн-тестов PASS: архив 44 TGS, повреждение ZIP, составные эмодзи,
+  ограничения имён, владелец/привязка, параметры API, кэш и восстановление после
+  неопределённого результата createNewStickerSet. Публикация в Telegram без токена
+  не выполнялась; установка набора остаётся действием пользователя по ссылке.
+
+### Диагностика паузы на 10/44 (2026-10-22)
+
+- Проверены только состояние процесса, счётчики локального кэша и read-only getMe:
+  процесс жив, токен действителен, 10 файлов сохранены, создание наборов ещё
+  не запускалось. Токен и file_id не выводились; текущая загрузка не прерывалась.
+- Старый статус обновлялся раз в пять файлов и молчал при retry_after. Это не
+  позволяло отличить сетевой запрос от ожидания лимита Telegram; конкретный 429
+  текущего процесса не подтверждён. Добавлены статус каждого файла, консольный
+  прогресс и обработчик 429 с временем ожидания и оставшимися секундами в /status.
+- 12 офлайн-тестов PASS, включая точное соблюдение retry_after и статус паузы.
+  Изменения применятся после перезапуска пользователем; кэш загрузки сохранён.
+
+### Pack bot V2 и исправление six-seven (2026-10-22)
+
+- По просьбе пользователя подготовлена отдельная V2 без остановки/перезапуска
+  действующего процесса. Новый запуск — `scripts/start-telegram-bot-v2.cmd`.
+- `/add` сверяет ZIP с существующим набором и добавляет только отсутствующие
+  файлы, `/packs` показывает известные ссылки. Совместимость с кэшем/историей V1;
+  архив перечитывается для каждой операции. Поддержаны порции создания по 50,
+  пределы 200 эмодзи / 120 обычных стикеров, восстановление после частичного
+  добавления и потери ответа API без дубликатов, сверка file_unique_id.
+- Одна последовательная очередь передач с базовой паузой 8 с, адаптивным
+  замедлением и сохранением retry_after между перезапусками. Сообщения имеют
+  отдельное ограничение частоты. Одно сообщение прогресса редактируется раз в 5 с,
+  показывает текущий файл, ожидание и ссылки; итог фиксируется от перезаписи
+  статусом следующего задания. Тесты используют только mock API и временное состояние.
+- Пользователь прислал реальный лог: после корректного ожидания 429 Telegram
+  отклонил six-seven с wrong file type. Найдены 17 статических скалярных свойств
+  с k:[number] вместо k:number. Исправлена заморозка в six-seven/build.mjs.
+  Все 180 кадров до/после совпали пиксель в пиксель. Один проверочный uploadStickerFile
+  исправленного файла принят Telegram; публикация/сообщения/текущий polling не трогались.
+  Готовый файл и ZIP обновлены; квитанция загрузки в отдельном файле, V2 импортирует
+  её только для соответствующего бота. Добавлена проверка статических скаляров
+  при чтении архива. Токен в выводы не попадал.
+- Проверки: 13 тестов V1 + 18 тестов V2 PASS, typecheck, 36 файлов / 1254 теста
+  редактора и build PASS; checker six-seven PASS. Индекс: 44 готовых, 46 черновиков,
+  нечитаемых нет. Действующий процесс и его файл состояния не изменялись.
+
+### L: приглушение блика большого пальца (2026-10-22)
+
+- Пользователь попросил приглушить слишком яркий блик L и дать файл для ручной
+  замены. Возможность замены через бота отложена; код бота не менялся.
+- Только два светлых заполнения Thumb Down Shad 2 изменены на #8cb7d3, opacity 55.
+  Параметры записаны в recipe.thumbHighlight, рисунок и движение сохранены.
+- Проверка исходников/рига/амплитуд и всех 180 кадров PASS, Telegram checks PASS.
+  Файл ready и ZIP обновлены. Привязка L остаётся 👆.
+- (2026-10-22) User: work from the phone over a Cloudflare tunnel, a password on the page, a «В Telegram» button for a draft, the site usable on a phone. Done: `server/remote.ts` (Vite plugin: /__login with SITE_PASSWORD for tunnel requests, local requests pass; /api/telegram/{info,sets,status,add}); bot V2 got a 127.0.0.1-only control server (BOT_CONTROL_TOKEN, POST /append = /add «Добавить», 409 while busy; 2 new offline tests, 20 pass); the emoji map of package-blue.py moved to packs/blue/emoji.txt (archive contents unchanged); Library: «Открыть» and «В Telegram» (TelegramPanel) in the bottom bar, short set names on phones; Toolbar icon-only on phones, «Образцы» hidden; Preview stage fluid up to 512 px. `scripts/remote.mjs` starts editor + bot + quick tunnel. Checked: tunnel without login → 303/401 for pages, files, API, .env; right password → 200; 375 px layout without horizontal scroll. No real add to Telegram was triggered by Claude. docs/remote.md.
+- (2026-10-22) User: 022 (blown kiss) like Codex's large faces, no eyes, white mouth, make the kiss look right. `packs/blue/kissing-face/`: 069 head in the circle's group, eyes removed, smile and pucker white, the big flying lips white with #335375 outline and light-blue shade, the lip print on the glass white. 19.7 KB, PASS, draft.
+- (2026-10-22) User: 062 (😱) and 068 (🤔). `packs/blue/screaming-face/`, `packs/blue/thinking-face/`: hands by recipe, eyes/brows/hand shadows removed, mouths white, the 069 head in place of the circle; new `packs/blue/lib/fit-head.mjs` builds it per keyframe of the circle narrowed to 300:378, so the 😱 head stretches with the scream. 7.2 / 9.1 KB, PASS, drafts.
+- (2026-10-22) User: «Добавить» on the site must just add the chosen sticker, not walk the whole pack. Found: V2 never recognised stickers already in a real set (a set sticker has other file_id/file_unique_id than its upload), so the first site add sent all 45 files; Telegram itself skipped identical files except a second new 👆 (emoji set positions 44 and 46). Fix: the site sends `files: [<id>.tgs]`, the bot adds only those; presence by SHA-256 of set stickers of the same size (downloaded once, cached in `set_hashes`). Publisher.save retries os.replace on Windows locks. V1 13 / V2 22 tests pass. The duplicate 👆 is left for the user to decide.
+- (2026-10-22) User: 026 (tongue out) + a small V hand, back of the hand to the camera, the tongue between the two fingers; the hand rises, the tongue wags, the hand goes down, looped. `packs/blue/tongue-victory/`: 069 head, white mouth, light-blue tongue; the hand from 154 (backhand index up) frozen at frame 0 (new `packs/blue/lib/freeze.mjs`, static values written as Telegram wants), the index copied as the middle finger over the first knuckle and spread 24°, outline trimmed to the knuckles; parented to the mouth, up 50–64, down 146–166. 13.4 KB, PASS, draft.
+- (2026-10-22) tongue-victory, user feedback (phone screenshot + photo of a real V): face smaller and higher (Resize 78 %, y 165), tongue 80 %, hand fully visible; both fingers now under the hand's fill and turned from their own knuckles (index −14°, middle +17° on the middle knuckle), the fill's top flattened at the knuckle line over them, the middle knuckle arc trimmed from the outline, knuckle highlights removed, finger gradients carried back to match the hand's on the canvas. No mattes.
+- (2026-10-22) tongue-victory, user: knuckle shadow still on the middle finger, a sharp cut where the fingers begin, keep the knuckle highlights except the middle one. Now the fingers' outlines are paths inside the hand's own fills (one silhouette, one gradient), finger fills/shade dropped, outlines on top trimmed at computed points with a crotch curve, only the middle knuckle's highlight flattened away.
+- (2026-10-22) tongue-victory, user: gesture a bit left (tongue in the middle of the V), no wrist (round bottom like the pack's hands), loop: hand on the left and head on the right meet in the middle for the wag and part again, fingers a little alive on sharp moves. Done: Palm Shad 2 path cut below the wrist line and closed with a round bottom + outline, wrist layers dropped; Resize and the hand holder travel (46–64 in, 148–170 out); a damped spring from the hand's sideways acceleration on the canvas rotates both finger pivots. Composition 73 %, bounds 8–490 px. 15.8 KB, PASS.
+- (2026-10-22) tongue-victory, user: gesture still a bit right of the tongue, the jiggle moved only the outlines (fill static, out of sync), a dark dot at the crotch, a sharp knuckle-highlight sliver at the middle finger's base, use the free room left and below. Done: hand `at` 46→38; hand.mjs returns bend(keys), which keys the pivots and bakes the same turn into the finger paths in the hand's fill (only the opaque `With Finger 4`) and the crotch ends (keys only where the swing bends, 0.3°); crotch collapsed to one point; the middle knuckle highlight's points gathered to where the ring one starts; a 'Grow' null 103 % from the top right; rest hand x −215, y +34. 32.4 KB, PASS, bounds 57–421 × 9–502.
+- (2026-10-22) Site → Telegram, user: the add button also on the sticker's own page, several stickers at once added in turn, several sets in turn, the pack shown newest first on the site, and the bot sends back each emoji/sticker as it came out. Done: TelegramPanel takes `ids` (click order) with an emoji per sticker and set checkboxes; «Добавить в пак» in the editor's inspector for a sticker opened from drafts/ready; `/api/telegram/add {set, items, names}` checks all first, copies, binds, packages once; bot `remote_append(names, files)` runs them in order per set, then `show()` sends each via `sendSticker` (found by bytes, `Publisher.placed`); library.mjs orders ready/ by reverse emoji.txt. Bot tests 23.

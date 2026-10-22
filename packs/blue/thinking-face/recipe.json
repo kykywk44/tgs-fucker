@@ -1,0 +1,7 @@
+{
+  "emoji": "🤔", "library": "068", "frame": 0,
+  "build": "node packs/blue/thinking-face/build.mjs",
+  "remove": ["eye1", "eye3", "br1", "br2", "Shadow hand", "body 2"],
+  "colors": {"#e76900": "#335375", "#f8c729": "body", "#fddc66": "#8cb7d3", "#f3ac19": "#44688b"},
+  "gradients": [["body"], ["hand 2"]]
+}

@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react'
-import { Check as CheckIcon, Copy, Pause, Play, X as XIcon } from 'lucide-react'
+import { Check as CheckIcon, Copy, FolderOpen, Pause, Play, Send, X as XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { FromGrid, ToGrid } from '@/player/grid'
+import { TelegramPanel } from '@/ui/TelegramPanel'
 
 // The «Эмодзи» tab: library/emoji (Telegram's animated emoji, numbered) and the blue pack.
 // With «Анимация» on, tiles on screen play (grid.worker.ts, an OffscreenCanvas per visible tile);
 // the static sprite shows until a tile's first frame and for everything off screen. Click selects, Shift+click selects a
 // range, the bar at the bottom copies the selected ids for a batch request to Claude.
-// Double-click opens one in the editor; the tab stays mounted (selection, scroll) while hidden.
+// Double-click (or «Открыть», on a phone) opens one in the editor; the tab stays mounted (selection,
+// scroll) while hidden. Selected stickers of the blue pack or its drafts can be sent to Telegram
+// (TelegramPanel), in the order they were clicked.
 // Index and sprites come from `node scripts/library.mjs` (served by the dev server).
 
 interface LibraryItem {
@@ -36,10 +39,18 @@ interface LibraryIndex {
 }
 
 const TILE = 64 // css px
+// Set names on a phone, where the full ones push «Анимация» off the screen.
+const SHORT_TITLE: Record<string, string> = { emoji: 'Telegram', blue: 'Готово', drafts: 'Черновики' }
+
+export interface PackOrigin {
+  set: 'drafts' | 'blue'
+  id: string
+}
 
 export interface LibraryProps {
   active: boolean // false while the editor is shown: playback pauses
-  onOpen(file: File): void
+  onOpen(file: File, origin: PackOrigin | null): void // origin: a sticker of the blue pack or its drafts
+  reload?: number // changed: the index is fetched again (the pack changed elsewhere)
 }
 
 interface GridApi {
@@ -218,7 +229,7 @@ function Thumb({ api, k, url, sprite }: { api: GridApi | null; k: string; url: s
   )
 }
 
-export function Library({ active, onOpen }: LibraryProps) {
+export function Library({ active, onOpen, reload = 0 }: LibraryProps) {
   const [index, setIndex] = useState<LibraryIndex | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [setId, setSetId] = useState('emoji')
@@ -229,6 +240,9 @@ export function Library({ active, onOpen }: LibraryProps) {
   const gridRef = useRef<HTMLUListElement>(null)
   const scrollTop = useRef(0)
   const [animate, setAnimate] = useAnimateSetting()
+  const [telegram, setTelegram] = useState(false)
+  // Bumped to fetch the index again (after «В Telegram» the server rebuilds it in the background).
+  const [indexSeq, setIndexSeq] = useState(0)
   const api = useGrid(gridRef, animate && index !== null, active)
 
   // Hidden behind the editor the list may lose its scroll position; put it back on return.
@@ -238,7 +252,7 @@ export function Library({ active, onOpen }: LibraryProps) {
 
   useEffect(() => {
     let stale = false
-    fetch('/library/index.json')
+    fetch(`/library/index.json${indexSeq + reload ? `?v=${indexSeq}-${reload}` : ''}`, { cache: 'no-store' })
       .then((r) => {
         if (!r.ok) throw new Error(`${r.status}`)
         return r.json() as Promise<LibraryIndex>
@@ -248,7 +262,7 @@ export function Library({ active, onOpen }: LibraryProps) {
     return () => {
       stale = true
     }
-  }, [])
+  }, [indexSeq, reload])
 
   const set = index?.sets.find((s) => s.id === setId) ?? null
   const picked = useMemo(() => selected[setId] ?? new Set<string>(), [selected, setId])
@@ -273,6 +287,15 @@ export function Library({ active, onOpen }: LibraryProps) {
     [set, picked],
   )
 
+  const single = pickedIds.length === 1 ? pickedIds[0] : null
+  // The Telegram panel takes the selection of the pack or its drafts in click order (a Set keeps it).
+  const packSet = setId === 'drafts' || setId === 'blue' ? setId : null
+  const clicked = useMemo(() => (set ? [...picked].filter((id) => set.items.some((it) => it.id === id)) : []), [set, picked])
+  const sendable = packSet !== null && clicked.length > 0
+  useEffect(() => {
+    if (!sendable) setTelegram(false)
+  }, [sendable])
+
   const clear = () => {
     anchor.current = null
     setSelected((all) => ({ ...all, [setId]: new Set() }))
@@ -287,7 +310,7 @@ export function Library({ active, onOpen }: LibraryProps) {
   const open = async (item: LibraryItem) => {
     if (!set) return
     const response = await fetch(`/${set.dir}/${item.file}`)
-    if (response.ok) onOpen(new File([await response.blob()], `${item.id}.tgs`))
+    if (response.ok) onOpen(new File([await response.blob()], `${item.id}.tgs`), packSet ? { set: packSet, id: item.id } : null)
   }
 
   if (error) return <p className="m-auto p-6 text-body text-muted-foreground">{error}</p>
@@ -297,7 +320,7 @@ export function Library({ active, onOpen }: LibraryProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center gap-1 border-b border-border px-4 py-2">
+      <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border px-2 py-2 sm:px-4">
         {index.sets.map((s) => (
           <Button
             key={s.id}
@@ -312,7 +335,8 @@ export function Library({ active, onOpen }: LibraryProps) {
               setSetId(s.id)
             }}
           >
-            {s.title} · {s.items.length}
+            <span className="max-sm:hidden">{s.title}</span>
+            <span className="sm:hidden">{SHORT_TITLE[s.id] ?? s.title}</span> · {s.items.length}
           </Button>
         ))}
         <span className="ml-auto hidden truncate text-body text-muted-foreground lg:block">
@@ -327,7 +351,7 @@ export function Library({ active, onOpen }: LibraryProps) {
           title="Проигрывать эмодзи, которые сейчас на экране"
           onClick={() => setAnimate(!animate)}
         >
-          {animate ? 'Анимация: вкл' : 'Анимация: выкл'}
+          <span className="max-sm:sr-only">{animate ? 'Анимация: вкл' : 'Анимация: выкл'}</span>
         </Button>
       </div>
 
@@ -337,7 +361,7 @@ export function Library({ active, onOpen }: LibraryProps) {
           if (active) scrollTop.current = e.currentTarget.scrollTop
         }}
         aria-label={set.title}
-        className="grid min-h-0 flex-1 content-start gap-1 overflow-y-auto p-4"
+        className="grid min-h-0 flex-1 content-start gap-1 overflow-y-auto p-2 sm:p-4"
         style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${TILE + 16}px, 1fr))` }}
       >
         {set.items.map((item, i) => {
@@ -385,14 +409,44 @@ export function Library({ active, onOpen }: LibraryProps) {
         })}
       </ul>
 
-      <div className="flex shrink-0 items-center gap-3 border-t border-border px-4 py-3">
-        <span className="min-w-0 flex-1 truncate text-body text-muted-foreground tabular-nums">
+      {telegram && sendable && packSet && (
+        <TelegramPanel
+          set={packSet}
+          ids={clicked}
+          onClose={() => setTelegram(false)}
+          onAdded={() => {
+            // the server rebuilds library/index.json after the archive; pick it up when it is likely done
+            setTimeout(() => setIndexSeq((n) => n + 1), 20000)
+          }}
+        />
+      )}
+
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-2 py-2 sm:gap-3 sm:px-4 sm:py-3">
+        <span className="min-w-0 flex-1 basis-full truncate text-body text-muted-foreground tabular-nums sm:basis-auto">
           {pickedIds.length ? `Выбрано ${pickedIds.length}: ${pickedIds.join(', ')}` : 'Ничего не выбрано'}
         </span>
-        <Button variant="ghost" leadingIcon={XIcon} disabled={!pickedIds.length} onClick={clear}>
-          Снять выделение
+        <Button variant="ghost" size="compact" leadingIcon={XIcon} disabled={!pickedIds.length} onClick={clear}>
+          Снять<span className="max-sm:hidden">&nbsp;выделение</span>
         </Button>
-        <Button variant="primary" leadingIcon={copied ? CheckIcon : Copy} disabled={!pickedIds.length} onClick={copy}>
+        {single && (
+          <Button
+            variant="secondary"
+            size="compact"
+            leadingIcon={FolderOpen}
+            onClick={() => {
+              const item = set.items.find((it) => it.id === single)
+              if (item) void open(item)
+            }}
+          >
+            Открыть
+          </Button>
+        )}
+        {sendable && (
+          <Button variant={telegram ? 'secondary' : 'ghost'} size="compact" leadingIcon={Send} aria-pressed={telegram} onClick={() => setTelegram(!telegram)}>
+            В Telegram{clicked.length > 1 ? ` · ${clicked.length}` : ''}
+          </Button>
+        )}
+        <Button variant="primary" size="compact" leadingIcon={copied ? CheckIcon : Copy} disabled={!pickedIds.length} onClick={copy}>
           {copied ? 'Скопировано' : 'Скопировать ID'}
         </Button>
       </div>

@@ -143,16 +143,16 @@ export function Preview({ json, totalFrames, onPick }: PreviewProps) {
   }
 
   return (
-    // Children are centred with auto margins; when the pane is narrower than 512px they
-    // overflow to the right (scrollable) instead of off the left edge (unreachable).
-    <div className="flex flex-col items-start gap-3">
-      {/* 512x512 CSS px stage: the ring is a box-shadow, so the canvas keeps its full 512px. */}
+    // Up to 512 CSS px wide; narrower panes (a phone) get a smaller square stage. The canvas keeps
+    // its 512 px × pixel-ratio backing store and is scaled to the stage; picking uses fractions.
+    <div className="flex w-full max-w-[512px] flex-col gap-3">
+      {/* the ring is a box-shadow, so the canvas fills the whole square */}
       <div
         ref={stageRef}
         onClick={pick}
-        className="checkerboard mx-auto size-[512px] overflow-hidden rounded-2xl ring-1 ring-border"
+        className="checkerboard aspect-square w-full overflow-hidden rounded-2xl ring-1 ring-border"
       />
-      <div className="mx-auto flex w-[512px] items-center gap-3">
+      <div className="flex w-full items-center gap-3">
         <Button
           variant="secondary"
           size="icon"
@@ -170,8 +170,9 @@ export function Preview({ json, totalFrames, onPick }: PreviewProps) {
           value={frame}
           onChange={seek}
         />
-        <span className="min-w-[12ch] text-right text-body tabular-nums whitespace-nowrap text-muted-foreground">
-          кадр {frame} / {totalFrames}
+        <span className="text-right text-body tabular-nums whitespace-nowrap text-muted-foreground sm:min-w-[12ch]">
+          <span className="max-sm:hidden">кадр </span>
+          {frame} / {totalFrames}
         </span>
       </div>
       {error !== null && (

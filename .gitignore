@@ -4,6 +4,10 @@ dist/
 .superpowers/
 exports/
 .DS_Store
+.env
+.env.*
+!.env.example
+__pycache__/
 # Telegram's emoji (library/README.md says how to restore) and what scripts/library.mjs builds from them
 library/emoji/
 library/thumbs/

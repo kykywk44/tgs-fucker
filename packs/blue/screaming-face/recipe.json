@@ -1,0 +1,7 @@
+{
+  "emoji": "😱", "library": "062", "frame": 0,
+  "build": "node packs/blue/screaming-face/build.mjs",
+  "remove": ["eye r", "eye l", "Shadow Hands"],
+  "colors": {"#df6b0a": "#335375", "#f8c829": "body", "#fedb70": "#8cb7d3", "#ed8801": "#44688b"},
+  "gradients": [["base"], ["arml"], ["armR"]]
+}

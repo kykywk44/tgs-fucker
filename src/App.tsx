@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Send } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { telegramChecks, type Check } from '@/core/checks'
 import { findFamilies, remapFamilies, type ColorFamily } from '@/core/families'
 import { matchProfile, resolveParts, type StickerProfile } from '@/core/parts'
@@ -6,10 +8,11 @@ import { readTgs, writeTgs, type Lottie } from '@/core/tgs'
 import { Preview } from '@/preview/Preview'
 import { Checks } from '@/ui/Checks'
 import { DropZone, useFilePicker } from '@/ui/DropZone'
-import { Library } from '@/ui/Library'
+import { Library, type PackOrigin } from '@/ui/Library'
 import { useColorSession } from '@/ui/colorSession'
 import { Palette } from '@/ui/Palette'
 import { Parts } from '@/ui/Parts'
+import { TelegramPanel } from '@/ui/TelegramPanel'
 import { fetchSample, SAMPLES, type Sample } from '@/ui/samples'
 import { Toolbar, type View } from '@/ui/Toolbar'
 import { useHistory, useUndoShortcuts } from '@/ui/useHistory'
@@ -83,6 +86,11 @@ function App() {
   const [view, setView] = useState<View>('editor')
   // The open file came from the «Эмодзи» tab: the toolbar offers the way back.
   const [fromLibrary, setFromLibrary] = useState(false)
+  // …and was a sticker of the blue pack or its drafts: the inspector offers «В пак» for it.
+  const [origin, setOrigin] = useState<PackOrigin | null>(null)
+  const [packPanel, setPackPanel] = useState(false)
+  // Bumped when the pack changed from here: the library fetches its index again.
+  const [packSeq, setPackSeq] = useState(0)
 
   useUndoShortcuts(history)
 
@@ -116,6 +124,7 @@ function App() {
   const openFile = useCallback(
     (file: File) => {
       setFromLibrary(false)
+      setOrigin(null)
       void handleFile(file)
     },
     [handleFile],
@@ -227,9 +236,12 @@ function App() {
       <div hidden={view !== 'library'} className="flex min-h-0 flex-1 flex-col">
         <Library
           active={view === 'library'}
-          onOpen={(file) => {
+          reload={packSeq}
+          onOpen={(file, from) => {
             setView('editor')
             setFromLibrary(true)
+            setOrigin(from)
+            setPackPanel(false)
             void handleFile(file)
           }}
         />
@@ -242,8 +254,8 @@ function App() {
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
               {/* m-auto centres the preview and, unlike justify-center, never pushes it off the
                   left edge when the pane is narrower than the 512 px stage. */}
-              <main className="flex flex-none overflow-auto p-6 lg:min-w-0 lg:flex-1">
-                <div className="m-auto">
+              <main className="flex flex-none overflow-auto p-3 sm:p-6 lg:min-w-0 lg:flex-1">
+                <div className="m-auto flex w-full max-w-[512px] justify-center">
                   <Preview key={fileSeq} json={json} totalFrames={shown.op - shown.ip} />
                 </div>
               </main>
@@ -252,6 +264,34 @@ function App() {
                 aria-label="Инспектор"
                 className="flex shrink-0 flex-col gap-6 border-t border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l"
               >
+                {origin && (
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      variant={packPanel ? 'secondary' : 'primary'}
+                      leadingIcon={Send}
+                      aria-pressed={packPanel}
+                      className="self-start"
+                      onClick={() => setPackPanel(!packPanel)}
+                    >
+                      Добавить в пак
+                    </Button>
+                    {packPanel && (
+                      <>
+                        {history.canUndo && (
+                          <p className="text-caption text-muted-foreground">Добавится файл {origin.id} как он есть, без правок редактора.</p>
+                        )}
+                        <TelegramPanel
+                          key={`${origin.set}/${origin.id}`}
+                          set={origin.set}
+                          ids={[origin.id]}
+                          className="rounded-xl border"
+                          onClose={() => setPackPanel(false)}
+                          onAdded={() => setTimeout(() => setPackSeq((n) => n + 1), 20000)}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
                 {parts && parts.length > 0 && (
                   <Parts
                     key={`parts-${fileSeq}`}

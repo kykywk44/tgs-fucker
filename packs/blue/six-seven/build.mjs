@@ -61,7 +61,9 @@ function freeze(node, frame) {
   for (const [key, v] of Object.entries(node)) {
     if (v && typeof v === 'object' && v.a === 1 && Array.isArray(v.k) && v.k[0] && 't' in v.k[0]) {
       const value = frozen(v, frame)
-      node[key] = { a: 0, k: Array.isArray(value) && value.length === 1 && typeof value[0] === 'object' ? value[0] : value }
+      // Animated scalar values use [number], but static scalar values must be
+      // numbers. Keeping [number] here renders in tlottie but Telegram rejects it.
+      node[key] = { a: 0, k: Array.isArray(value) && value.length === 1 ? value[0] : value }
     } else freeze(v, frame)
   }
 }

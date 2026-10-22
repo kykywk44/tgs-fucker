@@ -1,0 +1,9 @@
+{
+  "name": "Жест рукой",
+  "sourceFile": "gifts_emoji_by_gifts_changes_bot_AgADQYMAAuJoeEs.tgs",
+  "build": "node packs/blue/gift-hand/build.mjs",
+  "remove": ["бант", "манжета", "металлические блики", "белые звёзды"],
+  "outline": "#335375",
+  "shading": { "highlight": "#a5d6ea", "shadow": "#44688b", "softShadows": false },
+  "gradient": ["#44688b", "#6086a7", "#7ba3c3"]
+}

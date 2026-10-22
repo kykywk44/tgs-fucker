@@ -1,5 +1,22 @@
 # Dev scripts
 
+`scripts/start-telegram-bot-v2.cmd` is the next-version launcher: `/add` appends
+only missing TGS to existing packs owned by this user and created by this bot.
+Reuses V1 cache/history, reloads the ZIP for each operation, serializes transfers,
+persists adaptive rate limits/cooldowns and edits one progress message every 5s.
+Do not run alongside V1. Offline tests: `python scripts/test_telegram_pack_bot_v2.py`.
+
+`scripts/start-telegram-bot.cmd` starts the local Telegram pack bot (Python standard
+library). Set `TELEGRAM_BOT_TOKEN` in root `.env`, pair your account using the console
+code, then choose emoji/stickers/both and names in the bot. Reads `exports/blue-pack.zip`;
+uploads use manifest emoji mappings and persistent cache. See `docs/telegram-pack-bot.md`.
+Offline checks: `python scripts/test_telegram_pack_bot.py`.
+
+`python scripts/package-blue.py` packages all approved `packs/blue/ready/*.tgs` into
+`exports/blue-pack.zip`, with Russian upload instructions, emoji mappings and SHA-256
+manifest. Excludes both technologists, checks TGS dimensions/FPS/duration/size and
+verifies ZIP contents against the original bytes. Python standard library only.
+
 ## check.sh: Telegram sticker validation
 
 Checks `.tgs` files with python-lottie's own Telegram checker (`tgs_check.py`, lottie==0.7.2).
@@ -51,3 +68,9 @@ Checks `.tgs` files with python-lottie's own Telegram checker (`tgs_check.py`, l
 - Writes `exports/sheets/<pack>-<name>.png` (6 frames: original above, restyled below) and prints the Telegram checks.
 
 `node scripts/library.mjs` — index and thumbnails for the editor's «Эмодзи» tab: `library/emoji/*.tgs` (Telegram's emoji, numbered; see `library/README.md`), `packs/blue/ready/*.tgs` and the drafts `exports/blue/*.tgs` → `library/index.json` + `library/thumbs/<set>-<n>.png` (128 px cells, 100 per sprite; the frame showing the most of the drawing). Emoji named by a recipe's `"library"` are marked done. ~15 s for 997 files; rerun after adding to `ready/`.
+
+## Телефон: туннель, пароль, «В Telegram»
+
+- `node scripts/remote.mjs` / `scripts/start-remote.cmd` — редактор + бот V2 + Cloudflare-туннель, адрес в `exports/remote-url.txt`.
+- `scripts/package-blue.py` берёт привязки эмодзи из `packs/blue/emoji.txt`.
+- Подробности — `docs/remote.md`.

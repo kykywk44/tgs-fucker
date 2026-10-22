@@ -29,6 +29,8 @@ const firstShape = p => p.a ? p.k[0].s[0] : p.k
 const silhouette = firstShape(firstPath(byName(bust.layers, 'silhouette')).ks)
 const crown = firstShape(firstPath(byName(bust.layers, 'top')).ks)
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255)
+for (const paint of walk(byName(anim.layers, 'background').shapes).filter(x => x.ty === 'fl'))
+  paint.c = { a: 0, k: [...rgb(recipe.photoBackground), 1] }
 const tr = () => ({ ty: 'tr', p: { a: 0, k: [0, 0] }, a: { a: 0, k: [0, 0] },
   s: { a: 0, k: [100, 100] }, r: { a: 0, k: 0 }, o: { a: 0, k: 100 } })
 const stroke = (color, width) => ({ ty: 'st', c: { a: 0, k: [...rgb(color), 1] },

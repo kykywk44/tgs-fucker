@@ -3,7 +3,8 @@
 //   packs/blue/ready/*.tgs the finished blue pack, exports/blue/*.tgs its drafts (restyle.mjs output)
 // → library/index.json, library/thumbs/<set>-<n>.png (sprites of THUMB px cells, CHUNK per sprite)
 // A pack item made from a library emoji names it in packs/<pack>/<name>/recipe.json ("library": "167"),
-// so the index marks that emoji as done. Read-only on the stickers.
+// so the index marks that emoji as done. The finished pack is listed newest first: the reverse of
+// packs/blue/emoji.txt, where each sticker added to the pack is appended. Read-only on the stickers.
 // Usage: node scripts/library.mjs
 
 import { existsSync } from 'node:fs'
@@ -20,7 +21,7 @@ const { readTgs } = await load('src/core/tgs.ts')
 
 const SETS = [
   { id: 'emoji', title: 'Эмодзи Telegram', dir: 'library/emoji' },
-  { id: 'blue', title: 'Синий пак · готово', dir: 'packs/blue/ready' },
+  { id: 'blue', title: 'Синий пак · готово', dir: 'packs/blue/ready', order: 'packs/blue/emoji.txt' },
   { id: 'drafts', title: 'Синий пак · черновики', dir: 'exports/blue' },
 ]
 
@@ -66,6 +67,12 @@ const index = { thumb: THUMB, cols: COLS, sets: [] }
 for (const set of SETS) {
   const dir = join(ROOT, set.dir)
   const files = existsSync(dir) ? (await readdir(dir)).filter((f) => f.endsWith('.tgs')).sort() : []
+  if (set.order) {
+    // newest first; a file the list does not name goes last
+    const lines = (await readFile(join(ROOT, set.order), 'utf8')).split(/\r?\n/).filter((l) => l && !l.startsWith('#'))
+    const added = new Map(lines.map((l, n) => [`${l.split(' ', 1)[0]}.tgs`, n]))
+    files.sort((a, b) => (added.get(b) ?? -1) - (added.get(a) ?? -1))
+  }
   const items = []
   let sheet = null
   const flush = async () => {
