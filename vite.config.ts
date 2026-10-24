@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { loadEnv } from 'vite'
 import { configDefaults, defineConfig } from 'vitest/config'
 import { remote } from './server/remote.ts'
+import { isRuntimeData } from './server/runtime-files.ts'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -27,6 +28,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      watch: { ignored: (file) => isRuntimeData(process.cwd(), file) },
       // The phone reaches the dev server through a quick Cloudflare tunnel (*.trycloudflare.com).
       allowedHosts: ['.trycloudflare.com'],
     },

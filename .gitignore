@@ -8,7 +8,12 @@ exports/
 .env.*
 !.env.example
 __pycache__/
+# Local photos used as video textures; never commit originals.
+/packs/blue/clipboard/private/
+/packs/emoji/photo-devices/photo.png
+/packs/emoji/photo-devices/private/
 # Telegram's emoji (library/README.md says how to restore) and what scripts/library.mjs builds from them
 library/emoji/
 library/thumbs/
 library/index.json
+library/gifts/

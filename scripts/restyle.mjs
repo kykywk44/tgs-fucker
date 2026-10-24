@@ -18,6 +18,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Canvas, ROOT, encodePng, engine, framesAt, load } from './lib/sheets.mjs'
+import { normalizeHandHighlights } from '../packs/blue/lib/hand-highlights.mjs'
 
 const CELL = 192
 
@@ -279,8 +280,15 @@ function restyle(anim, recipe, style) {
   const colors = { ...lower(style.colors), ...lower(recipe.colors) }
   const map = makeMapper(colors, recipe.ramp ?? style.ramp)
   const frame = recipe.frame ?? Math.floor((out.ip + out.op) / 2)
-  // "remove": layer names to drop everywhere (clothes that the pack's style has no place for)
-  const drop = (layers) => layers.filter((l) => !(recipe.remove ?? []).includes(l.nm))
+  // "remove": layer names to drop everywhere (clothes that the pack's style has no place for); a
+  // removed layer that others hang on (a nose carrying the eyes and mouth) stays as an empty null
+  const drop = (layers) =>
+    layers.flatMap((l) => {
+      if (!(recipe.remove ?? []).includes(l.nm)) return [l]
+      if (!layers.some((c) => c.parent === l.ind)) return []
+      const { shapes, ...rest } = l
+      return [{ ...rest, ty: 3 }]
+    })
   out.layers = drop(out.layers)
   for (const asset of out.assets ?? []) if (asset.layers) asset.layers = drop(asset.layers)
   // "trims": shorten a stroke that ran under removed clothes —
@@ -330,7 +338,7 @@ function restyle(anim, recipe, style) {
   const units = [out.layers, ...(out.assets ?? []).filter((a) => a.layers).map((a) => a.layers)]
   const done = units.map((layers) => restyleUnit(layers, frame, colors, map, style, recipe.gradients)).filter((u) => u.bodies)
   const box = done[0]?.box ?? { x0: 0, y0: 0, x1: 0, y1: 0 }
-  return { anim: out, box, bodies: done.reduce((n, u) => n + u.bodies, 0), frame }
+  return { anim: recipe.handHighlights ? normalizeHandHighlights(out,style) : out, box, bodies: done.reduce((n, u) => n + u.bodies, 0), frame }
 }
 
 // ---------- main ----------

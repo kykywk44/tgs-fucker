@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="634" height="1077" viewBox="-20 -20 680 1120" fill="none">
+  <title>Rabbit — editable master, source coordinates, shared head</title>
+  <desc>Black #010101 and white only. Open outline segments avoid seams at ear and leg joints. Hidden facial controls are editable paths, not masks. Original floating circular paws are intentional.</desc>
+  <g id="root" data-pivot="280 1070">
+    <g id="body" data-parent="root" data-pivot="280 930">
+      <g id="leg-left" data-parent="body" data-pivot="194 906" fill="white" stroke="#010101" stroke-width="17" stroke-linecap="round" stroke-linejoin="round">
+        <path id="leg-left-shape" d="M141 896 C141 920 137 930 116 945 C88 966 66 1002 66 1030 C64 1057 90 1067 146 1068 C188 1070 233 1067 250 1050 C264 1038 258 1006 260 978 C260 955 267 946 281 946 L281 887 Z"/>
+      </g>
+      <g id="leg-right" data-parent="body" data-pivot="365 906" fill="white" stroke="#010101" stroke-width="17" stroke-linecap="round" stroke-linejoin="round">
+        <path id="leg-right-shape" d="M279 887 L415 896 C418 918 416 930 437 943 C465 963 491 1001 491 1029 C491 1056 462 1068 402 1068 C365 1068 328 1065 310 1053 C294 1043 296 1016 298 990 C298 967 296 946 279 946 Z"/>
+      </g>
+      <g id="torso" data-parent="body" data-pivot="280 930">
+        <path id="torso-fill" fill="white" d="M198 710 C157 768 146 820 139 876 L134 927 C168 939 219 947 280 946 C333 948 380 940 424 927 L420 894 C413 831 404 790 361 710 Z"/>
+        <path id="torso-outline-left" stroke="#010101" stroke-width="17" stroke-linecap="round" d="M196 731 C160 783 148 826 139 878 C136 898 136 914 134 927"/>
+        <path id="torso-outline-right" stroke="#010101" stroke-width="17" stroke-linecap="round" d="M366 733 C402 785 413 835 420 894 C422 909 421 919 424 927"/>
+        <path id="crotch-crease" fill="#010101" d="M253 937 Q279 940 305 937 L295 945 Q279 950 264 944 Z"/>
+      </g>
+      <g id="paw-left" data-parent="body" data-pivot="64 813" fill="white" stroke="#010101" stroke-width="16" stroke-linejoin="round">
+        <path id="paw-left-shape" d="M64 757 C95 757 119 781 119 812 C120 843 95 869 64 869 C33 869 8 844 8 813 C8 782 32 757 64 757 Z"/>
+      </g>
+      <g id="paw-right" data-parent="body" data-pivot="494 813" fill="white" stroke="#010101" stroke-width="16" stroke-linejoin="round">
+        <path id="paw-right-shape" d="M494 757 C525 756 550 781 550 812 C551 843 526 869 495 869 C464 870 439 845 438 814 C437 783 463 758 494 757 Z"/>
+      </g>
+    </g>
+    <g id="head" data-parent="body" data-pivot="280 550">
+      <g id="ear-left" data-parent="head" data-pivot="169 371">
+        <path id="ear-left-fill" fill="white" d="M115 397 C78 333 44 252 27 193 C10 139 -2 80 34 37 C55 10 86 2 113 17 C152 37 169 88 181 137 C199 203 214 286 222 349 L237 397 L136 438 Z"/>
+        <path id="ear-left-outline" stroke="#010101" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" d="M115 397 C78 333 44 252 27 193 C10 139 -2 80 34 37 C55 10 86 2 113 17 C152 37 169 88 181 137 C199 203 214 286 222 349"/>
+      </g>
+      <g id="ear-right" data-parent="head" data-pivot="389 377">
+        <path id="ear-right-fill" fill="white" d="M337 349 C363 283 398 191 469 193 C529 190 586 249 611 300 C629 337 634 372 610 398 C588 424 552 418 520 395 C497 379 478 356 471 354 C460 367 449 385 442 395 L423 425 L330 399 Z"/>
+        <path id="ear-right-outline" stroke="#010101" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" d="M337 349 C363 283 398 191 469 193 C529 190 586 249 611 300 C629 337 634 372 610 398 C588 424 552 418 520 395 C497 379 478 356 471 354 C460 367 449 385 442 395"/>
+        <path id="ear-fold" fill="#010101" d="M445 303 C456 318 466 332 478 345 L465 361 C457 345 449 324 445 303 Z"/>
+      </g>
+      <g id="skull" data-parent="head" data-pivot="280 550">
+        <path id="skull-fill" fill="white" d="M115 397 C139 375 180 351 222 349 C263 343 302 343 337 349 C378 359 412 375 442 395 C486 431 508 476 512 531 C520 590 502 645 467 683 C422 730 359 751 282 752 C204 753 137 734 96 689 C57 646 43 607 45 551 C45 490 69 440 115 397 Z"/>
+        <path id="forehead-outline" stroke="#010101" stroke-width="17" d="M222 349 C263 343 302 343 337 349"/>
+        <path id="cheek-outline" stroke="#010101" stroke-width="17" stroke-linejoin="round" stroke-linecap="round" d="M442 395 C486 431 508 476 512 531 C520 590 502 645 467 683 C422 730 359 751 282 752 C204 753 137 734 96 689 C57 646 43 607 45 551 C45 490 69 440 115 397"/>
+      </g>
+      <g id="face" data-parent="head" data-pivot="280 620">
+        <g id="eye-left" data-parent="face" data-pivot="166 616">
+          <path id="eye-left-pupil" fill="#010101" d="M110.906 627.246 C105.499 613.004 102.746 579.04 103.968 563.897 C104.571 556.415 134.964 571.619 138.845 573.266 L186.011 593.453 L215.045 606.055 C219.283 607.916 228.64 610.941 230.124 614.951 C228.033 627.871 212.562 652.522 208.115 665.528 C207.586 667.077 204.849 670.071 203.441 671.161 C200.172 673.69 197.194 673.328 193.414 672.239 C179.173 672.288 129.067 643.448 114.848 634.245 C112.308 632.604 111.23 630.228 110.906 627.246 Z"/>
+          <g id="eyelid-left" data-parent="eye-left" data-pivot="166 610" opacity="0">
+            <path id="eyelid-left-control" stroke="#010101" stroke-width="14" stroke-linecap="round" d="M111 612 C140 594 191 596 222 616"/>
+          </g>
+        </g>
+        <g id="eye-right" data-parent="face" data-pivot="390 616">
+          <path id="eye-right-pupil" fill="#010101" d="M367.006 671.608 C364.98 672.257 362.818 672.973 360.663 672.973 C357.773 672.973 354.779 671.559 352.777 669.507 C348.735 665.362 327.592 619.721 328.021 614.376 C328.113 613.218 328.542 612.765 329.521 612.073 C332.24 610.157 336.361 608.853 339.428 607.475 C348.46 603.428 357.522 599.448 366.608 595.535 L415.36 574.643 C423.051 571.355 444.561 561.001 451.982 561.705 C459.109 565.93 449.049 622.238 444.322 630.393 C441.304 639.015 376.185 672.147 367.006 671.608 Z"/>
+          <g id="eyelid-right" data-parent="eye-right" data-pivot="390 610" opacity="0">
+            <path id="eyelid-right-control" stroke="#010101" stroke-width="14" stroke-linecap="round" d="M337 616 C367 596 417 594 445 612"/>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

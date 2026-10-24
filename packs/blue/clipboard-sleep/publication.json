@@ -1,0 +1,31 @@
+{
+  "approved": true,
+  "seconds": 15,
+  "fps": 30,
+  "emoji": [
+    "📝",
+    "😴"
+  ],
+  "sets": {
+    "blues_emoji_by_jhthkjbot": {
+      "size": 100,
+      "bytes": 62954,
+      "sha256": "630faf14a5b862a24853dc8e840c6b21af717542ea2170ed76fb2e2c08e7e379",
+      "file_unique_id": "AgADBKIAAv4D6Eo",
+      "position": 60,
+      "count": 61,
+      "custom_emoji_id": "5397568542860157444",
+      "verified_download": true
+    },
+    "blues_stickers_by_jhthkjbot": {
+      "size": 512,
+      "bytes": 259157,
+      "sha256": "ba46fddabfab14aa827f13e15d49ae6773abd446a4bcb2483d9b323fda66a8fa",
+      "file_unique_id": "AgADQKUAAnuE6Uo",
+      "position": 58,
+      "count": 59,
+      "custom_emoji_id": null,
+      "verified_download": true
+    }
+  }
+}

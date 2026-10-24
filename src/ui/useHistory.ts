@@ -57,10 +57,10 @@ export interface History<T> {
   canRedo: boolean
 }
 
-export function useHistory<T>(): History<T> {
+export function useHistory<T>(initial: T | null = null): History<T> {
   const [state, dispatch] = useReducer<HistoryState<T>, [HistoryAction<T>]>(historyReducer, {
     past: [],
-    present: null,
+    present: initial,
     future: [],
   })
   const set = useCallback((value: T) => dispatch({ type: 'set', value }), [])

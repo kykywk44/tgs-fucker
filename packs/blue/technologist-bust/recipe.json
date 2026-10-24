@@ -1,6 +1,8 @@
 {
   "emoji": "🧑‍💻",
   "library": "200",
+  "build": "node packs/blue/technologist-bust/build.mjs",
+  "logo": "n · как на identification-card, прежний серый кружок",
   "remove": [
     "Eyes",
     "Brows",

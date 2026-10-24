@@ -7,5 +7,6 @@
   "fade": {
     "Palm Light": 0,
     "Thumb Light": 40
-  }
+  },
+  "handHighlights": true
 }

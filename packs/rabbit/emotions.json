@@ -1,0 +1,7 @@
+{
+  "neutral": { "reference": null, "title": "Нейтральная основа", "kind": "neutral", "events": "Quiet breathing, one blink, tiny delayed ear follow-through; frame 0 is the untouched neutral expression." },
+  "003": { "reference": "003", "title": "Смех", "kind": "laugh", "events": "0–24 anticipation; 30–116 three laughter pulses with closed smiling eyes and springing ears; 120–160 settle; circular paws lift beside the cheeks. No mouth or eyebrows." },
+  "016": { "reference": "016", "title": "Подмигивание", "kind": "wink", "events": "0–34 glance and 18-degree surface turn; 40–74 left wink; 88–108 second smaller wink; 120–156 return; near paw lifts to cheek, far paw counterbalances. No mouth or eyebrows." },
+  "054": { "reference": "054", "title": "Злость", "kind": "angry", "events": "0–24 stare; 28–50 compression; 54–80 upward huff; 92–120 second smaller huff; 126–158 settle; fists tuck in and feet brace." },
+  "089": { "reference": "089", "title": "Сонное потягивание", "kind": "yawn", "events": "0–30 heavy blink; 32–68 slow inhale and stretch; 70–114 sleepy hold; 116–150 release and sleepy blink; 152–180 settle. Full-body paw rubs the cheek; head version uses drooping ears and heavy eyelids. No mouth or eyebrows." }
+}

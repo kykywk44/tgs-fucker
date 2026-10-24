@@ -1,0 +1,6 @@
+{
+  "emoji": "😏",
+  "source": "../troll-face/source.tgs",
+  "build": "node packs/blue/troll-face/build.mjs",
+  "variant": "smooth"
+}

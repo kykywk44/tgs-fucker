@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { telegramChecks, type Check } from '@/core/checks'
@@ -16,6 +16,7 @@ import { TelegramPanel } from '@/ui/TelegramPanel'
 import { fetchSample, SAMPLES, type Sample } from '@/ui/samples'
 import { Toolbar, type View } from '@/ui/Toolbar'
 import { useHistory, useUndoShortcuts } from '@/ui/useHistory'
+import { DOCUMENT_KEY, WORKSPACE_KEY, emptyWorkspace, isDocument, isWorkspace, readStored, writeStored, type SavedWorkspace } from '@/ui/workspaceSession'
 
 // readTgs only parses JSON, so a valid JSON file that is not an animation gets through.
 // Everything the preview, the palette and the checks read must exist and be sane.
@@ -71,26 +72,55 @@ interface Doc {
 }
 
 function App() {
-  const history = useHistory<Doc>()
+  const [savedDoc] = useState(() => readStored(DOCUMENT_KEY, isDocument))
+  const [saved] = useState(() => {
+    const page = readStored(WORKSPACE_KEY, isWorkspace) ?? emptyWorkspace
+    // A failed/quota-limited later save must not label an older document as a new file.
+    if (!savedDoc?.workspace) return page
+    const { fileName, fromLibrary, origin } = savedDoc.workspace
+    return { ...page, fileName, fromLibrary, origin }
+  })
+  const history = useHistory<Doc>(savedDoc)
   const { present, set, reset } = history
-  const [fileName, setFileName] = useState<string | null>(null)
+  const [fileName, setFileName] = useState<string | null>(saved.fileName)
   // Bumped on every successful load: keys the preview so a new file restarts at frame 0,
   // while edits of the same file keep the same preview and swap the animation in place.
   const [fileSeq, setFileSeq] = useState(0)
   // The known sticker profile of the opened file, or null for an unknown one: fixed until the next.
-  const [profile, setProfile] = useState<StickerProfile | null>(null)
+  const [profile, setProfile] = useState<StickerProfile | null>(() => savedDoc ? matchProfile(savedDoc.anim)?.profile ?? null : null)
   const [error, setError] = useState<string | null>(null)
   // The live preview while a swatch popover is open; null when nothing is being picked.
   const [previewAnim, setPreviewAnim] = useState<Lottie | null>(null)
   const [checks, setChecks] = useState<Check[]>([])
-  const [view, setView] = useState<View>('editor')
+  const [view, setView] = useState<View>(saved.view)
   // The open file came from the «Эмодзи» tab: the toolbar offers the way back.
-  const [fromLibrary, setFromLibrary] = useState(false)
+  const [fromLibrary, setFromLibrary] = useState(saved.fromLibrary)
   // …and was a sticker of the blue pack or its drafts: the inspector offers «В пак» for it.
-  const [origin, setOrigin] = useState<PackOrigin | null>(null)
-  const [packPanel, setPackPanel] = useState(false)
+  const [origin, setOrigin] = useState<PackOrigin | null>(saved.origin)
+  const [packPanel, setPackPanel] = useState(saved.packPanel)
   // Bumped when the pack changed from here: the library fetches its index again.
   const [packSeq, setPackSeq] = useState(0)
+  const editorPaneRef = useRef<HTMLDivElement>(null)
+  const workspaceRef = useRef<SavedWorkspace>(saved)
+  const editorScroll = useRef(saved.editorScroll)
+  const inspectorScroll = useRef(saved.inspectorScroll)
+
+  useLayoutEffect(() => {
+    workspaceRef.current = { view, fileName, fromLibrary, origin, packPanel, editorScroll: editorScroll.current, inspectorScroll: inspectorScroll.current }
+    writeStored(WORKSPACE_KEY, workspaceRef.current)
+  }, [view, fileName, fromLibrary, origin, packPanel])
+  useLayoutEffect(() => {
+    if (!writeStored(DOCUMENT_KEY, present ? { ...present, workspace: workspaceRef.current } : null)) {
+      setError('Не удалось сохранить файл в браузере. Экспортируй его перед обновлением страницы.')
+    }
+  }, [present, fileName, fromLibrary, origin])
+
+  // A library rebuild changes data, not the route or the open document.
+  useEffect(() => {
+    const update = () => setPackSeq(n => n + 1)
+    import.meta.hot?.on('tgs:library-updated', update)
+    return () => { import.meta.hot?.off('tgs:library-updated', update) }
+  }, [])
 
   useUndoShortcuts(history)
 
@@ -123,6 +153,7 @@ function App() {
   // A file from anywhere but the «Эмодзи» tab.
   const openFile = useCallback(
     (file: File) => {
+      editorScroll.current = inspectorScroll.current = 0
       setFromLibrary(false)
       setOrigin(null)
       void handleFile(file)
@@ -130,6 +161,23 @@ function App() {
     [handleFile],
   )
   const picker = useFilePicker(openFile)
+
+  // If browser storage couldn't keep a large document, its library location still recovers.
+  useEffect(() => {
+    if (savedDoc || !saved.fromLibrary || !saved.fileName) return
+    const id = saved.origin?.id ?? saved.fileName.replace(/\.tgs$/i, '')
+    if (!/^[a-z0-9-]+$/.test(id)) return
+    const dir = saved.origin?.set === 'drafts' ? 'exports/blue' : saved.origin?.set === 'blue' ? 'packs/blue/ready' : 'library/emoji'
+    const controller = new AbortController(), seq = loadSeq.current
+    fetch(`/${dir}/${id}.tgs`, { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error(`${response.status}`)
+        const blob = await response.blob()
+        if (!controller.signal.aborted && seq === loadSeq.current) await handleFile(new File([blob], saved.fileName!))
+      })
+      .catch((err: unknown) => { if (!controller.signal.aborted) setError(`Не удалось восстановить файл: ${errorMessage(err)}`) })
+    return () => controller.abort()
+  }, [saved, savedDoc, handleFile])
 
   const handleSample = useCallback(
     async (sample: Sample) => {
@@ -190,6 +238,11 @@ function App() {
 
   // The one colour-editing session of the inspector; its refocus selectors are looked up inside it.
   const inspectorRef = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    if (view !== 'editor') return
+    if (editorPaneRef.current) editorPaneRef.current.scrollTop = editorScroll.current
+    if (inspectorRef.current) inspectorRef.current.scrollTop = inspectorScroll.current
+  }, [view, fileSeq])
   const colorSession = useColorSession({
     anim: presentAnim,
     onPreview: setPreviewAnim,
@@ -238,6 +291,7 @@ function App() {
           active={view === 'library'}
           reload={packSeq}
           onOpen={(file, from) => {
+            editorScroll.current = inspectorScroll.current = 0
             setView('editor')
             setFromLibrary(true)
             setOrigin(from)
@@ -251,7 +305,10 @@ function App() {
           {present && shown && (
             // Below 1024 px the whole area scrolls and the inspector sits under the canvas; from
             // 1024 px the canvas and the inspector scroll on their own.
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+            <div ref={editorPaneRef} onScroll={e => {
+              editorScroll.current = e.currentTarget.scrollTop
+              writeStored(WORKSPACE_KEY, { ...workspaceRef.current, editorScroll: editorScroll.current, inspectorScroll: inspectorScroll.current })
+            }} className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
               {/* m-auto centres the preview and, unlike justify-center, never pushes it off the
                   left edge when the pane is narrower than the 512 px stage. */}
               <main className="flex flex-none overflow-auto p-3 sm:p-6 lg:min-w-0 lg:flex-1">
@@ -261,6 +318,10 @@ function App() {
               </main>
               <aside
                 ref={inspectorRef}
+                onScroll={e => {
+                  inspectorScroll.current = e.currentTarget.scrollTop
+                  writeStored(WORKSPACE_KEY, { ...workspaceRef.current, editorScroll: editorScroll.current, inspectorScroll: inspectorScroll.current })
+                }}
                 aria-label="Инспектор"
                 className="flex shrink-0 flex-col gap-6 border-t border-border p-4 lg:w-80 lg:overflow-y-auto lg:border-t-0 lg:border-l"
               >
@@ -286,7 +347,7 @@ function App() {
                           ids={[origin.id]}
                           className="rounded-xl border"
                           onClose={() => setPackPanel(false)}
-                          onAdded={() => setTimeout(() => setPackSeq((n) => n + 1), 20000)}
+                          onAdded={() => setPackSeq((n) => n + 1)}
                         />
                       </>
                     )}

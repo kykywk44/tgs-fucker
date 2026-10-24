@@ -289,7 +289,7 @@ class Publisher(v1.Publisher):
 
 
 class LiveProgress:
-    """A single editor thread owns the message, including its final update."""
+    """A single thread creates and edits an optional notification, independently of uploads."""
     def __init__(self, api, chat, message_id, render, interval=5):
         self.api, self.chat, self.message_id, self.render = api, chat, message_id, render
         self.interval = max(5, interval)
@@ -304,8 +304,12 @@ class LiveProgress:
         if text == self.last:
             return
         try:
-            self.api.call('editMessageText', {'chat_id': self.chat, 'message_id': self.message_id,
-                                            'text': text, 'link_preview_options': {'is_disabled': True}})
+            params = {'chat_id': self.chat, 'text': text, 'link_preview_options': {'is_disabled': True}}
+            if self.message_id is None:
+                message = self.api.call('sendMessage', params)
+                self.message_id = message['message_id']
+            else:
+                self.api.call('editMessageText', dict(params, message_id=self.message_id))
         except ApiError as error:
             if error.code == 400 and 'message is not modified' in str(error).lower():
                 self.last = text
@@ -318,6 +322,14 @@ class LiveProgress:
         self.thread.start()
 
     def run(self):
+        if self.message_id is None:
+            try:
+                self.update()
+            except ApiError as error:
+                # A lost sendMessage response may still have created the message.
+                # Do not resend blindly or stop the independent publication job.
+                print(f'Не удалось отправить прогресс: {error}\nОчередь продолжает работу; статус доступен на сайте и по /status.', flush=True)
+                return
         failures = 0
         while True:
             self.wake.wait(self.interval)
@@ -434,7 +446,6 @@ class Bot(v1.Bot):
             with self.start_lock:
                 if self.running:
                     return super().handle(update)
-                self.say(chat, 'Запускаю очередь. Прогресс будет обновляться в следующем сообщении.')
                 self.start_job(owner, chat, p)
             return
         if not p and text not in ('/newpack', '/cancel', 'Отмена') and not text.startswith('/start'):
@@ -446,12 +457,9 @@ class Bot(v1.Bot):
         """The caller holds start_lock and has checked that nothing is running."""
         self.status, self.links = 'Подготавливаю загрузку…', []
         self.started_at, self.running = time.time(), True
-        try:
-            message = self.api.call('sendMessage', {'chat_id': chat, 'text': self.status_text()})
-        except ApiError:
-            self.running = False
-            raise
-        live = LiveProgress(self.api, chat, message['message_id'], self.status_text)
+        # No Telegram requests on the control HTTP thread: a notification can
+        # take 90 seconds or fail without preventing the accepted job from running.
+        live = LiveProgress(self.api, chat, None, self.status_text)
         self.live = live
         live.start()
         threading.Thread(target=self.publish_job, args=(owner, dict(config), list(files if files is not None else self.files), live), daemon=True).start()
@@ -493,13 +501,20 @@ class Bot(v1.Bot):
         return {'started': True, 'files': len(files), 'links': [self.pub.link(n, r['kind']) for n, r in zip(names, records)]}
 
     def show(self, chat, name, files):
-        """Sends each file as the set has it now: a sticker, or the custom emoji as a sticker."""
+        """Sends each file as the set has it now: a sticker as a sticker; a custom emoji (which
+        sendSticker refuses: «can't send emoji stickers in messages») as a message of that emoji."""
         record = self.pub.state['sets'][name]
         try:
             self.api.call('sendMessage', {'chat_id': chat, 'text': f"«{record['title']}»: как получилось",
                                           'link_preview_options': {'is_disabled': True}})
             for item, sticker in self.pub.placed(name, files):
-                self.api.call('sendSticker', {'chat_id': chat, 'sticker': sticker['file_id']})
+                if sticker.get('custom_emoji_id'):
+                    text = sticker.get('emoji') or '⭐'
+                    self.api.call('sendMessage', {'chat_id': chat, 'text': text, 'entities': [
+                        {'type': 'custom_emoji', 'offset': 0, 'length': len(text.encode('utf-16-le')) // 2,
+                         'custom_emoji_id': sticker['custom_emoji_id']}]})
+                else:
+                    self.api.call('sendSticker', {'chat_id': chat, 'sticker': sticker['file_id']})
         except (ApiError, OSError) as error:
             print(f'Не удалось прислать результат: {error}', flush=True)
 

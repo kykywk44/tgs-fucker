@@ -1,0 +1,7 @@
+{
+  "name": "Синий · Chill",
+  "emoji": "💆💙",
+  "source": "chillstick.tgs",
+  "build": "node packs/blue/chill/build.mjs",
+  "status": "draft"
+}

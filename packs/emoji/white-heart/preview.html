@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Белое сердце · +ąi</title>
+<style>
+body{margin:0;background:#f5f5f6;color:#34343b;font:16px system-ui;display:grid;place-items:center;min-height:100vh}
+main{max-width:560px;width:90%;text-align:center}h1{font-size:24px}canvas{width:100%;max-width:440px;background:repeating-conic-gradient(#ededf0 0% 25%,#fafafa 0% 50%) 0 0/32px 32px;border-radius:24px}
+nav{display:flex;align-items:center;justify-content:center;gap:20px;margin:24px}a{color:#454576}button{font:inherit;padding:10px 18px;border:1px solid #ccc;border-radius:10px;cursor:pointer}input{width:100%;max-width:440px}p{color:#72727b}
+</style>
+<main><h1>Белое сердце · +ąi</h1><p>Надпись с обеих сторон · черновик</p><canvas width="512" height="512"></canvas><div><input aria-label="Кадр" type="range" min="0" max="179" value="0"></div><nav><button>Пауза</button><a href="/exports/emoji/white-heart.tgs" download>Скачать TGS</a><a href="./inscription.svg" download>Надпись SVG</a></nav><p id="status">Загрузка…</p></main>
+<script type="module">
+import {loadEngine} from '/src/player/engine.ts';
+const [wasm,bytes]=await Promise.all([fetch('/node_modules/tlottie/dist/core/tlottie.wasm').then(r=>r.arrayBuffer()),fetch('/exports/emoji/white-heart.tgs').then(r=>r.arrayBuffer())]);
+const text=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+const engine=await loadEngine(wasm),anim=engine.create(text);
+if(!anim)throw Error('Не удалось открыть TGS');
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),slider=document.querySelector('input'),button=document.querySelector('button'),status=document.querySelector('#status');
+let playing=true,frame=0,last=performance.now();
+function draw(){const pixels=anim.render(frame,512,512);ctx.putImageData(new ImageData(new Uint8ClampedArray(pixels),512,512),0,0);slider.value=frame;status.textContent=`Кадр ${frame} / 179 · 60 fps · ${(bytes.byteLength/1024).toFixed(1)} KB`;}
+button.onclick=()=>{playing=!playing;button.textContent=playing?'Пауза':'Воспроизвести';last=performance.now()};
+slider.oninput=()=>{playing=false;button.textContent='Воспроизвести';frame=Number(slider.value);draw()};
+function tick(now){if(playing&&now-last>=1000/60){const delta=Math.floor((now-last)*60/1000);frame=(frame+delta)%180;last+=delta*1000/60;draw()}requestAnimationFrame(tick)}draw();requestAnimationFrame(tick);
+</script>
+</html>

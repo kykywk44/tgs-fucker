@@ -3,5 +3,6 @@
   "library": "131",
   "colors": {
     "#ffd75d": "#8cb7d3"
-  }
+  },
+  "handHighlights": true
 }

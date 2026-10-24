@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Check as CheckIcon, Send, X as XIcon } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check as CheckIcon, CircleAlert, Send, X as XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { readStored, writeStored } from '@/ui/workspaceSession'
+import { completed, panelKey, readTelegramSession, saveTelegramSession, stringList, targetsKey, type BotStatus } from '@/ui/telegramSession'
 
 // «В Telegram» for stickers of the blue pack (drafts or ready ones): the emoji each is bound to,
 // the bot's sets to add them to, and the bot's progress. They are added in the order given, to
@@ -23,12 +25,6 @@ interface Info {
   sameAsReady: boolean
 }
 
-interface BotStatus {
-  running: boolean
-  status: string
-  links: string[]
-}
-
 export interface TelegramPanelProps {
   set: 'drafts' | 'blue'
   ids: string[] // in the order they are added
@@ -38,8 +34,8 @@ export interface TelegramPanelProps {
 }
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init)
-  const body = (await response.json()) as T & { error?: string; note?: string }
+  const response = await fetch(url, { signal: AbortSignal.timeout(init?.method === 'POST' ? 45000 : 20000), ...init })
+  const body = (await response.json().catch(() => { throw new Error(`Сервер вернул некорректный ответ (${response.status}).`) })) as T & { error?: string; note?: string }
   if (!response.ok) throw new Error([body.error, body.note].filter(Boolean).join(' ') || `${response.status}`)
   return body
 }
@@ -49,25 +45,29 @@ const message = (err: unknown) => String(err instanceof Error ? err.message : er
 const setsWord = (n: number) => (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'набора' : 'наборов')
 
 export function TelegramPanel({ set, ids, className, onClose, onAdded }: TelegramPanelProps) {
+  const cacheKey = panelKey(set, ids)
+  const [saved] = useState(() => readTelegramSession(cacheKey))
   const [infos, setInfos] = useState<Info[] | null>(null)
   const [sets, setSets] = useState<BotSet[] | null>(null)
-  const [emoji, setEmoji] = useState<Record<string, string>>({})
-  const [targets, setTargets] = useState<string[]>([])
+  const [emoji, setEmoji] = useState<Record<string, string>>(saved?.emoji ?? {})
+  const [targets, setTargets] = useState<string[]>(() => readStored(targetsKey, stringList) ?? [])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [status, setStatus] = useState<BotStatus | null>(null)
+  const [status, setStatus] = useState<BotStatus | null>(saved?.status ?? null)
+  const submitting = useRef(false)
   const key = ids.join(',')
+  useEffect(() => { saveTelegramSession(cacheKey, { emoji, status }) }, [cacheKey, emoji, status])
+  useEffect(() => { writeStored(targetsKey, targets) }, [targets])
 
   useEffect(() => {
     let stale = false
     setInfos(null)
     setError(null)
-    setStatus(null)
     getJson<{ items: Info[] }>(`/api/telegram/info?set=${set}&ids=${encodeURIComponent(key)}`)
       .then((data) => {
         if (stale) return
         setInfos(data.items)
-        setEmoji(Object.fromEntries(data.items.map((it) => [it.id, it.emoji])))
+        setEmoji(current => Object.fromEntries(data.items.map((it) => [it.id, current[it.id] ?? it.emoji])))
       })
       .catch((err: unknown) => !stale && setError(message(err)))
     return () => {
@@ -83,7 +83,10 @@ export function TelegramPanel({ set, ids, className, onClose, onAdded }: Telegra
         setSets(data.sets)
         // the emoji set first: the pack is made for it
         const preferred = data.sets.find((s) => s.kind === 'custom_emoji') ?? data.sets[0]
-        setTargets((current) => (current.length ? current : preferred ? [preferred.name] : []))
+        setTargets((current) => {
+          const available = current.filter(name => data.sets.some(s => s.name === name))
+          return available.length ? available : preferred ? [preferred.name] : []
+        })
       })
       .catch((err: unknown) => !stale && setError(message(err)))
     return () => {
@@ -94,12 +97,21 @@ export function TelegramPanel({ set, ids, className, onClose, onAdded }: Telegra
   // While the bot works, its status is polled; it also edits one message in the Telegram chat.
   const running = status?.running ?? false
   useEffect(() => {
-    if (!running) return
-    const timer = setInterval(() => {
-      getJson<BotStatus>('/api/telegram/status').then(setStatus, () => {})
-    }, 3000)
-    return () => clearInterval(timer)
-  }, [running])
+    if (!running || busy) return
+    let stale = false, inFlight = false
+    const poll = async () => {
+      if (inFlight) return
+      inFlight = true
+      try {
+        const next = await getJson<BotStatus>('/api/telegram/status')
+        if (!stale) { setStatus(next); setError(null) }
+      } catch (err) { if (!stale) setError(`Не удалось получить прогресс: ${message(err)}`) }
+      finally { inFlight = false }
+    }
+    void poll()
+    const timer = setInterval(() => { void poll() }, 3000)
+    return () => { stale = true; clearInterval(timer) }
+  }, [running, busy])
 
   // Another version already in the pack can't be replaced in the set: those are left out.
   const conflict = (it: Info) => set === 'drafts' && it.inReady && !it.sameAsReady
@@ -110,10 +122,15 @@ export function TelegramPanel({ set, ids, className, onClose, onAdded }: Telegra
     setTargets((current) => (current.includes(name) ? current.filter((n) => n !== name) : [...current, name]))
 
   const add = async () => {
+    if (submitting.current || busy || running || !ready) return
+    submitting.current = true
     setBusy(true)
     setError(null)
+    const pending = { running: true, status: 'Подготавливаю файлы и передаю боту…', links: [] }
+    saveTelegramSession(cacheKey, { emoji, status: pending })
+    setStatus(pending)
     try {
-      await getJson('/api/telegram/add', {
+      const result = await getJson<{ links?: string[] }>('/api/telegram/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -123,23 +140,29 @@ export function TelegramPanel({ set, ids, className, onClose, onAdded }: Telegra
           names: sets?.filter((s) => targets.includes(s.name)).map((s) => s.name) ?? [],
         }),
       })
-      setStatus({ running: true, status: 'Бот начал загрузку…', links: [] })
+      const started = { running: true, status: 'Бот начал загрузку…', links: result.links ?? [] }
+      saveTelegramSession(cacheKey, { emoji, status: started })
+      setStatus(started)
       onAdded()
     } catch (err) {
       setError(message(err))
+      setStatus(null)
+      saveTelegramSession(cacheKey, { emoji, status: null })
     } finally {
+      submitting.current = false
       setBusy(false)
     }
   }
 
   const done = status && !status.running
+  const succeeded = status && completed(status)
   const title = ids.length === 1 ? ids[0] : `${ids.length} шт.`
 
   return (
     <section aria-label="Добавить в Telegram" className={cn('flex shrink-0 flex-col gap-3 border-t border-border bg-muted/40 px-4 py-3', className)}>
       <div className="flex items-center gap-2">
         <h2 className="min-w-0 flex-1 truncate text-body font-medium">В Telegram: {title}</h2>
-        <Button size="icon-compact" variant="ghost" aria-label="Закрыть" onClick={onClose}>
+        <Button type="button" size="icon-compact" variant="ghost" aria-label="Закрыть" onClick={onClose}>
           <XIcon />
         </Button>
       </div>
@@ -183,16 +206,17 @@ export function TelegramPanel({ set, ids, className, onClose, onAdded }: Telegra
             ))}
           </fieldset>
 
-          <Button variant="primary" leadingIcon={Send} disabled={busy || !ready} onClick={add} className="self-start">
+          <Button type="button" variant="primary" leadingIcon={Send} disabled={busy || !ready} onClick={add} className="self-start">
             {busy ? 'Отправляю…' : `Добавить ${sending.length || ''}${targets.length > 1 ? ` в ${targets.length} ${setsWord(targets.length)}` : ''}`.trim()}
           </Button>
         </>
       )}
 
       {status && (
-        <div className="flex flex-col gap-1 text-body">
+        <div role="status" aria-live="polite" className="flex flex-col gap-1 text-body">
           <p className="whitespace-pre-line text-foreground">
-            {done && <CheckIcon className="mr-1 inline size-4 text-primary" />}
+            {succeeded && <CheckIcon className="mr-1 inline size-4 text-primary" />}
+            {done && !succeeded && <CircleAlert className="mr-1 inline size-4 text-destructive" />}
             {status.status}
           </p>
           {status.links.map((link) => (
@@ -201,8 +225,9 @@ export function TelegramPanel({ set, ids, className, onClose, onAdded }: Telegra
             </a>
           ))}
           <p className="text-caption text-muted-foreground">
-            {done ? 'Как получилось — в чате с ботом.' : 'Прогресс также в чате с ботом; потом он пришлёт, как получилось.'}
+            {done ? succeeded ? 'Как получилось — в чате с ботом.' : 'Загрузка не завершена. Проверь сообщение бота выше.' : 'Прогресс также в чате с ботом; потом он пришлёт, как получилось.'}
           </p>
+          {done && <Button type="button" size="compact" variant="secondary" className="self-start" onClick={() => { setStatus(null); setError(null) }}>Отправить ещё</Button>}
         </div>
       )}
 

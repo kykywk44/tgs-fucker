@@ -1,0 +1,8 @@
+{
+  "library": "569",
+  "text": "СЕМЯ",
+  "font": "Roboto Black",
+  "bodyLayer": 35,
+  "panel": { "center": [158.3, -11], "radius": 140, "halfAngle": 1.02, "depth": 24 },
+  "liquidLayers": [42, 43, 44, 45, 46, 47, 48]
+}

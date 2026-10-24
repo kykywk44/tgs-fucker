@@ -9,12 +9,15 @@ import { execFileSync } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import assert from 'node:assert/strict'
+import { mapProperty } from '../lib/silhouette.mjs'
 
 const ROOT = join(import.meta.dirname, '..', '..', '..')
 const { Canvas, encodePng, engine, framesAt, load } = await import(pathToFileURL(join(ROOT, 'scripts', 'lib', 'sheets.mjs')).href)
 const { readTgs, writeTgs, sizeKb } = await load('src/core/tgs.ts')
 const { telegramChecks } = await load('src/core/checks.ts')
 const cfg = JSON.parse(await readFile(join(import.meta.dirname, 'head.json'), 'utf8'))
+const logoCfg = JSON.parse(await readFile(join(import.meta.dirname, 'logo.json'), 'utf8'))
 
 execFileSync(process.execPath, [join(ROOT, 'scripts', 'restyle.mjs'), 'blue/technologist-bust'], { stdio: 'ignore' })
 const OUT = join(ROOT, 'exports', 'blue', 'technologist-bust.tgs')
@@ -87,6 +90,36 @@ for (const [nm, [start, end]] of Object.entries(cfg.shoulder_rim)) {
   line.nm = 'Rim'
   layer.shapes.unshift(line)
 }
+
+// The card's exact Roboto Black n replaces the plane inside the existing badge.
+// Preserve the circle and paint: n is the same cutout that the plane used to be.
+const badge = byName(anim.layers, 'Laptop').shapes.find(g => g.nm === 'Group 4')
+const [plane, circle] = pathsIn([badge])
+assert.equal(shapeOf(plane).v.length, 11)
+assert.equal(shapeOf(circle).v.length, 4)
+const glyph = structuredClone(logoCfg.shape)
+const area = p => p.v.reduce((sum,v,i) => {
+  const next = p.v[(i+1)%p.v.length]
+  return sum + v[0]*next[1] - next[0]*v[1]
+}, 0)
+if (Math.sign(area(glyph)) !== Math.sign(area(shapeOf(plane)))) {
+  glyph.v.reverse()
+  const incoming = glyph.i
+  glyph.i = glyph.o.reverse()
+  glyph.o = incoming.reverse()
+}
+const bounds = [0,1].map(d => [Math.min(...glyph.v.map(v=>v[d])), Math.max(...glyph.v.map(v=>v[d]))])
+const center = bounds.map(([lo,hi]) => (lo+hi)/2)
+const height = bounds[1][1]-bounds[1][0]
+plane.ks = mapProperty(circle.ks, disk => {
+  const origin = [0,1].map(d => (disk.v[0][d]+disk.v[2][d])/2)
+  const xAxis = [0,1].map(d => (disk.v[3][d]-disk.v[1][d])/2)
+  const yAxis = [0,1].map(d => (disk.v[2][d]-disk.v[0][d])/2)
+  const vector = v => [0,1].map(d => 2*logoCfg.heightFraction*(xAxis[d]*v[0]+yAxis[d]*v[1])/height)
+  return {c:true,
+    v:glyph.v.map(v=>vector(v.map((n,d)=>n-center[d])).map((n,d)=>n+origin[d])),
+    i:glyph.i.map(vector),o:glyph.o.map(vector)}
+})
 
 const bytes = await writeTgs(anim)
 await writeFile(OUT, bytes)

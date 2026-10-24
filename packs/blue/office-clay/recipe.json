@@ -1,0 +1,8 @@
+{
+  "name": "Синий · Офисные гаджеты",
+  "emoji": "💻⌨️📱✍️",
+  "library": ["556", "557", "554", "168"],
+  "source": "clay.tgs",
+  "build": "node packs/blue/office-clay/build.mjs",
+  "status": "draft"
+}

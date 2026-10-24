@@ -1,0 +1,12 @@
+{
+  "emoji": "😏",
+  "source": "MemeEmoji_AgADdRwAAmsAAcFK.tgs.zip",
+  "build": "node packs/blue/troll-face/build.mjs",
+  "variants": ["troll-face", "troll-face-smooth"],
+  "outlineWidth": 10,
+  "crownVertices": [1, 2, 3, 4, 5, 6, 7],
+  "creaseColor": "#335375",
+  "creaseOpacity": 65,
+  "toothSeparators": "#6086a7",
+  "toothSeparatorWidth": 3.2
+}

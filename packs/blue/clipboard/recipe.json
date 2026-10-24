@@ -1,0 +1,59 @@
+{
+  "name": "193 · Записывает и показывает",
+  "library": [
+    "193",
+    "194"
+  ],
+  "emoji": "📝",
+  "build": "node packs/blue/clipboard/build.mjs",
+  "motion": {
+    "write": [
+      0,
+      44
+    ],
+    "rotate_in": [
+      44,
+      80
+    ],
+    "approach": [
+      48,
+      96
+    ],
+    "show": [
+      96,
+      126
+    ],
+    "retreat": [
+      126,
+      176
+    ],
+    "rotate_back": [
+      140,
+      174
+    ]
+  },
+  "paper": "blank; user will choose lettering later",
+  "framing": {
+    "write": "142% source rig, top near facepalm (61px), body meets bottom edge",
+    "show": "top 1/6 clear; lower board cropped"
+  },
+  "base": "source-193.tgs",
+  "mouth": "approved identification-card mouth contour (frame 110), white, smooth width/height morph, no lips or fade",
+  "body": "approved facepalm torso, affine fit, original material, no neck or separate shoulder highlights",
+  "clip": "all five original Tablet > Group 3 paths, one continuously projected clip above both faces",
+  "characterClock": "38 + 29*(1-cos(2*pi*frame/179)), continuous through presentation",
+  "bodyBreathingAmplitude": 0.5,
+  "sixSecondExperiment": {
+    "build": "node packs/blue/clipboard/build.mjs --six",
+    "story": "look at camera → nod → write → look up → present → return",
+    "master": "exports/blue/clipboard-6s-preview.tgs",
+    "preview": "exports/clipboard-6s/clipboard-6s-preview.mp4",
+    "uploadCandidates": [
+      "exports/clipboard-6s/clipboard-emoji-6s-spoof.webm",
+      "exports/clipboard-6s/clipboard-sticker-6s-spoof.webm"
+    ],
+    "serverAcceptance": "not tested; no pack changes",
+    "durationMetadataSeconds": 2.99,
+    "realSeconds": 6
+  }
+}

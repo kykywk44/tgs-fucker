@@ -31,6 +31,10 @@ for(const spec of specs) {
   assert.deepEqual(ls.filter(l=>l.ind<100).map(l=>l.ind),originals.map(l=>l.ind))
   for(const l of ls.filter(l=>l.ind<100)) {
     const o=old.find(x=>x.ind===l.ind),expected=noShapes(structuredClone(o))
+    if(spec.id==='070'&&['mouth-2','mouth 3'].includes(l.nm)){
+      const keys=expected.ks.o.k
+      keys[2].t=120;keys[2].o={x:[.333],y:[0]};keys[2].i={x:[.667],y:[1]};keys[3].t=126
+    }
     if(l.nm.startsWith('Drop')||l.nm==='hat') {
       const actual=l.ks.p,previous=o.ks.p
       assert.deepEqual(keyTimes(actual),keyTimes(previous))

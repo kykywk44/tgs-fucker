@@ -1,5 +1,10 @@
 # Dev scripts
 
+Library rebuilds use unique sprite names and replace `library/index.json` atomically,
+so open pages can keep their previous images until the new index is ready. The dev
+server emits `tgs:library-updated` for data refresh, without a page reload. Browser
+workspace/editor/selection/Telegram-panel state is restored per tab via sessionStorage.
+
 `scripts/start-telegram-bot-v2.cmd` is the next-version launcher: `/add` appends
 only missing TGS to existing packs owned by this user and created by this bot.
 Reuses V1 cache/history, reloads the ZIP for each operation, serializes transfers,
@@ -69,8 +74,41 @@ Checks `.tgs` files with python-lottie's own Telegram checker (`tgs_check.py`, l
 
 `node scripts/library.mjs` — index and thumbnails for the editor's «Эмодзи» tab: `library/emoji/*.tgs` (Telegram's emoji, numbered; see `library/README.md`), `packs/blue/ready/*.tgs` and the drafts `exports/blue/*.tgs` → `library/index.json` + `library/thumbs/<set>-<n>.png` (128 px cells, 100 per sprite; the frame showing the most of the drawing). Emoji named by a recipe's `"library"` are marked done. ~15 s for 997 files; rerun after adding to `ready/`.
 
+## video.mjs: a sticker as a video to look at
+
+```bash
+node scripts/video.mjs exports/blue/zombie-stamp.tgs exports/sheets/zombie-stamp.mp4 [size=512] [loops=2]
+```
+
+Every frame rendered on white (tlottie), joined by ffmpeg (libopenh264); for sending the motion to
+the user instead of frame sheets. Objects drawn as projected 3D models: `docs/3d-objects.md`.
+
 ## Телефон: туннель, пароль, «В Telegram»
 
 - `node scripts/remote.mjs` / `scripts/start-remote.cmd` — редактор + бот V2 + Cloudflare-туннель, адрес в `exports/remote-url.txt`.
 - `scripts/package-blue.py` берёт привязки эмодзи из `packs/blue/emoji.txt`.
 - Подробности — `docs/remote.md`.
+
+## Видео синего пака
+
+Сохранённый пайплайн: `docs/trailers.md`, исходники `trailers/blue-crowd/`.
+`powershell -ExecutionPolicy Bypass -File trailers/blue-crowd/build.ps1` — спрайты,
+мастер 1080p60 и лёгкий MP4 720p30 для Telegram. `-TelegramOnly` повторяет только
+сжатие готового мастера. Обе версии сохраняются отдельно в `exports/blue-crowd/`.
+
+## Шестисекундный эксперимент с WebM
+
+`node packs/blue/clipboard/build.mjs --six` — отдельный шестисекундный мастер,
+MP4 для просмотра и два прозрачных VP9 WebM (стикер 512px / эмодзи 100px).
+`node scripts/spoof-webm-duration.mjs input.webm output.webm [seconds=2.99]`
+меняет только EBML Duration, сохраняя кадры и таймстемпы. Локальное полное
+декодирование проверяется сборкой; принятие Telegram пока не проверено.
+Подробности: `docs/telegram-duration.md`. Проверки обычного TGS остаются прежними.
+
+## Подарки Telegram
+
+`node scripts/download-gifts.mjs` — все TGS из всех папок моделей GiftChanges,
+локальные файлы `library/gifts/models/<gift>/<model>.tgs`. Повторный запуск
+продолжает загрузку, проверяет gzip/Lottie, сохраняет каталог и отчёт.
+`node scripts/library.mjs` строит вкладку «Подарки»: крупные карточки Original,
+внутри — модели. Превью кэшируются по подарку. Подробности: `library/README.md`.

@@ -1,0 +1,8 @@
+{
+  "library": ["554", "556", "558", "573", "606", "621", "632", "950"],
+  "photo": "private/photo.png",
+  "format": "VP9 WebM with alpha",
+  "fps": 30,
+  "frames": 90,
+  "outputs": ["phone-photo-554", "laptop-photo-556", "printer-photo-558", "id-photo-573", "painting-photo-606", "letter-photo-621", "ballot-photo-632", "flag-photo-950"]
+}

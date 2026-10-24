@@ -1,0 +1,20 @@
+{
+  "library": "631",
+  "text": "+AI",
+  "font": "Roboto Black",
+  "width": 240,
+  "color": "#414141",
+  "dates": [
+    { "layer": 12, "group": 0, "paper": 14, "paperGroup": 2 },
+    { "layer": 17, "group": 0, "paper": 20, "paperGroup": 0 },
+    { "layer": 23, "group": 0, "paper": 26, "paperGroup": 0 },
+    { "layer": 29, "group": 1, "paper": 31, "paperGroup": 0 },
+    { "layer": 34, "group": 1, "paper": 36, "paperGroup": 0 },
+    { "layer": 40, "group": 1, "paper": 42, "paperGroup": 0 },
+    { "layer": 45, "group": 0, "paper": 47, "paperGroup": 0 },
+    { "layer": 50, "group": 0, "paper": 52, "paperGroup": 0 },
+    { "layer": 55, "group": 0, "paper": 57, "paperGroup": 0 },
+    { "layer": 62, "group": 0, "paper": 64, "paperGroup": 2 }
+  ],
+  "removeLayers": [39]
+}

@@ -8,5 +8,6 @@
     "Palm Side Light": 0,
     "Palm Middle Light": 0,
     "Thumb Big Light": 40
-  }
+  },
+  "handHighlights": true
 }

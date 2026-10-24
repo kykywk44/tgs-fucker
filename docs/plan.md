@@ -1494,3 +1494,316 @@ A static sketch (SVG with named groups, via python-lottie) + `motion.json` → a
 - (2026-10-22) tongue-victory, user: gesture a bit left (tongue in the middle of the V), no wrist (round bottom like the pack's hands), loop: hand on the left and head on the right meet in the middle for the wag and part again, fingers a little alive on sharp moves. Done: Palm Shad 2 path cut below the wrist line and closed with a round bottom + outline, wrist layers dropped; Resize and the hand holder travel (46–64 in, 148–170 out); a damped spring from the hand's sideways acceleration on the canvas rotates both finger pivots. Composition 73 %, bounds 8–490 px. 15.8 KB, PASS.
 - (2026-10-22) tongue-victory, user: gesture still a bit right of the tongue, the jiggle moved only the outlines (fill static, out of sync), a dark dot at the crotch, a sharp knuckle-highlight sliver at the middle finger's base, use the free room left and below. Done: hand `at` 46→38; hand.mjs returns bend(keys), which keys the pivots and bakes the same turn into the finger paths in the hand's fill (only the opaque `With Finger 4`) and the crotch ends (keys only where the swing bends, 0.3°); crotch collapsed to one point; the middle knuckle highlight's points gathered to where the ring one starts; a 'Grow' null 103 % from the top right; rest hand x −215, y +34. 32.4 KB, PASS, bounds 57–421 × 9–502.
 - (2026-10-22) Site → Telegram, user: the add button also on the sticker's own page, several stickers at once added in turn, several sets in turn, the pack shown newest first on the site, and the bot sends back each emoji/sticker as it came out. Done: TelegramPanel takes `ids` (click order) with an emoji per sticker and set checkboxes; «Добавить в пак» in the editor's inspector for a sticker opened from drafts/ready; `/api/telegram/add {set, items, names}` checks all first, copies, binds, packages once; bot `remote_append(names, files)` runs them in order per set, then `show()` sends each via `sendSticker` (found by bytes, `Publisher.placed`); library.mjs orders ready/ by reverse emoji.txt. Bot tests 23.
+- (2026-10-22) 573 identification-card: пользователь попросил синий улыбающийся портрет, заменить данные на n и сделать рукописную подпись n. Затем уточнил: вместо трёх строк нужна одна большая n справа, и широкая улыбка после появления содержимого. Добавлена папка identification-card/ с неизменённым source.tgs, recipe/build/verify. Сохранены корневой риг, переворот, материал карточки, глобус, появление портрета и ключи прорисовки подписи. Портрет — голова family/069 без глаз/шеи, белый рот. Одна большая строчная n из контуров Roboto Black; росчерк n одним путём. Улыбка растягивается 1.65× по ширине / 2.2× по высоте после появления элементов, удерживается и возвращается. 5.3 KB, 180 кадров, Telegram checks PASS; исходники/риг/замена текста/амплитуда улыбки проверены, минимальный запас до края 20 px. Черновик, без добавления в ready/Telegram.
+- (2026-10-22) 573, композиция по замечанию пользователя: голова была низко в рамке, n слишком справа. Портрет целиком поднят на 8 px в координатах холста (рот наследует смещение), n сдвинута влево на 12 px. Визуально проверены центрирование и широкая улыбка; проверка всех 180 кадров PASS, запас 20 px.
+- (2026-10-22) Пользователь: отправка с сайта обновляет страницу и сбрасывает открытый эмодзи. Генерируемые exports/, library/, ready/ и emoji.txt исключены из watcher Vite; индекс отслеживается отдельно с custom-событием tgs:library-updated, обновляется только библиотека, без навигации. library.mjs больше не удаляет активные спрайты: новые имеют уникальные имена, индекс заменяется атомарно. Состояние вкладки сохраняется в sessionStorage: открытый документ с текущими правками и семьями цветов, источник, раздел, панель Telegram, выделение в порядке кликов и прокрутка каждого списка/редактора. Документ связан с его именем/источником, сбой записи в хранилище не переименовывает старый документ в новый. Панель Telegram сохраняет привязки/наборы/статус, восстанавливает polling без повторения POST, блокирует двойной клик и показывает ошибки; idle-статус бота больше не считается успехом. Вместо таймера 20 с используется событие готовности индекса. Интеграционный тест реального локального HTTP/Vite с имитацией control API проверяет один /append и отсутствие full-reload; настоящие Telegram-паки тестом не затрагиваются.
+- (2026-10-22) Ошибка sendMessage при отправке с сайта: запуск очереди синхронно ждал сообщения прогресса, из-за чего сетевой сбой отменял загрузку, а долгий запрос превышал таймаут control API. Сообщение создаёт отдельный LiveProgress-поток; HTTP подтверждает старт сразу, публикация не зависит от уведомления. Убрано дополнительное блокирующее подтверждение при запуске из чата. Потерянный ответ sendMessage не вызывает повторную отправку сообщения; состояние доступно на сайте и по /status. Подсказка сайта отличает занятость от других ошибок. Регрессии проверяются офлайн, без реальных сообщений/изменений Telegram. Работающий процесс не остановлен, изменения бота применятся при следующем запуске.
+  Проверки: V1 13 / V2 26 тестов PASS, typecheck, 39 файлов / 1274 теста редактора и build PASS. Отдельный HTTP-тест подтверждает 202 и добавление файла, пока sendMessage заблокирован; сетевой сбой уведомления не отменяет загрузку и не повторяет сообщение. Read-only getMe подтвердил доступность Telegram; локальный running=false. Токен, сообщения, паки и текущий процесс не изменялись диагностикой.
+- (2026-10-22) Пользовательский MemeEmoji_AgADdRwAAmsAAcFK.tgs.zip: два варианта troll face, со складками / гладкий. `packs/blue/troll-face/` сохраняет точный source.tgs из ZIP; общий build собирает `troll-face` и `troll-face-smooth` (рецепт второго в отдельной папке). Сохранены внешняя форма troll face, форма улыбки, риг и все исходные тайминги. Глаза/брови/нос скрыты невидимыми родителями; градиент и обводка из пака, верхняя дуга светлая на исходных анимированных вершинах. Складки — #335375, 65%; в гладком варианте исключены. Зубные ряды белые, широкие фиолетовые просветы заменены тонкими синими разделителями по исходному движению. Нулевой skew удалён для совместимости. 12.0 / 8.6 KB; 180 кадров каждого проверены, запас 32 px, checker Telegram PASS. Оба добавлены в черновики библиотеки, ready/ и Telegram не затрагиваются.
+- (2026-10-22) Technologist Bust: пользователь выбрал эту версию и попросил n в кружке вместо самолётика Telegram. В logo.json сохранён точный контур строчной n с identification-card; build подставляет его как вырез в прежнюю серую заливку, используя анимированные оси кружка для перспективы. Побайтовое сравнение структуры подтвердило: изменён только путь самолётика, все остальные данные прежнего Bust совпадают. verify.mjs: 180 кадров, буква внутри кружка, материал/круг/риг прежние, запас 38 px. Telegram checker PASS; typecheck, 39 файлов / 1274 теста и build PASS. Черновик technologist-bust обновлён, индекс библиотеки пересобран.
+- (2026-10-22) Сайт не добавлял Bust из-за старого blanket-запрета Technologist is excluded в package-blue.py. Запрет сужен до прежнего technologist; technologist-bust разрешён, README архива обновлён. На изолированной копии проверена упаковка Bust с привязкой 🧑‍💻 и сохранение исключения старой версии. Рабочий ZIP успешно пересобран (50 готовых TGS); отправка в Telegram не запускалась, пользователь может повторить «Добавить» без перезапуска.
+- (2026-10-22) 070 Face with Hand Over Mouth: пользователь заметил синюю полосу при закрытии рта. Попытку пересобрать рот целиком пользователь отклонил: старый смех лучше, менять нужно только конец. Восстановлены все прежние контуры и морфинг; изменены исключительно два свойства opacity: плавный переход от открытого рта к исходной маленькой улыбке на 120–126 вместо резкого переключения 130–131. Кадры 0–120 пиксельно совпадают; отдельное сравнение структуры с прежним ready подтверждает, что других отличий нет. После 126 проблемная схлопнутая форма не рисуется. Общая проверка лиц, все 180 кадров, Telegram checker, typecheck, 39 файлов / 1274 теста и build PASS. Ready, ZIP и черновик обновлены. Для замены в Telegram подготовлен одноразовый скрипт в ignored exports: точный старый SHA-256, только третья позиция в двух принадлежащих владельцу наборах, API replaceStickerInSet, без addStickerToSet, без сообщений и перезаписи состояния работающего бота.
+  Замена выполнена и проверена скачиванием нового файла: blues_emoji_by_jhthkjbot (53 элемента) и blues_stickers_by_jhthkjbot (51 элемент), третья позиция сохранена, остальные file_unique_id и их порядок совпадают. Новых элементов и сообщений нет. Квитанция загрузки и результат лежат в ignored exports/telegram-bot/, основной state-файл работающего бота не перезаписывался.
+- (2026-10-22) zombie-stamp (new sticker, user's idea): a blue zombie rises, a stamp hits its face leaving a bluish n, the head recoils, the stamp flies off, the zombie walks a little and sinks; looped, one zombie and one strike per 3 s. Built in stages with a stop for comments after each. Stage 1, the stamp: user rejected a flat blue one and a flat grey top view ("не уровень телеграмовский", "объёмности нету", no n on the stamp, no white line, must turn and fly in at an angle, out of frame before and after); approved a projected 3D model (packs/blue/zombie-stamp/stamp.mjs, method in docs/3d-objects.md), the knob as one radial gradient (spot glints/arcs rejected); motion shown as video (scripts/video.mjs). Stage 2: 207/208/209 restyled (parts packs/blue/zombie-stamp-<n>), heads replaced by the pack head; restyle.mjs `remove` keeps a removed layer as a null when others hang on it.
+- (2026-10-22) zombie-stamp stage 3 approved as a first version («нормас, добавляй пока так») and added to the emoji set (🧟). Telegram's uploadStickerFile answered «wrong file type» although check.sh passed: a keyframe without o/i (the print's opacity, `linear` ease missing) — found by uploading cut-down copies. Spatial to/ti copied onto a scale property were removed too. Lesson: every non-final keyframe needs o/i, Telegram rejects the file otherwise.
+
+- (2026-10-23) Трейлер синего проекта: trailers/blue-crowd/ (scene.json, assets.mjs, render.py, README, loop preview). Видео 1920×1080, 60 fps, 12 с, H.264 BT.709, без звука. Шесть рядов из точной графики technologist-bust с n: независимо сдвинутые фазы/скорости печати, крышки обычных персонажей не закрываются. Пролёт вправо с параллаксом, плавное торможение, остановка 4–8.5 с, затем разгон. Герой первого ряда опускает ноутбук правой рукой, левой показывает отзеркаленный фак, белая улыбка, возвращается к работе. По уточнениям пользователя исключены исходный тычок и тряска кулака (спокойная поза, мягкий подъём/удержание/опускание, обводка согласована с другой кистью); персонажи непрозрачны, один общий белый→прозрачный вертикальный градиент наложен только над пятью задними рядами, первый ряд поверх него. Цикл пространственно и по фазам точен: кадры t=0 и t=12 совпадают побайтно, скорости камеры на стыке равны. MP4: exports/blue-crowd/blue-crowd-trailer.mp4, 720 кадров, 22.5 MB; ffprobe и полное декодирование PASS. Графика рендерится tlottie, композиция установленным Pillow, кодирование установленным FFmpeg; новые зависимости не устанавливались. Typecheck, 39 файлов / 1274 теста и build PASS. Стикеры и паки не изменялись.
+- (2026-10-23) Трейлер V2 по замечаниям пользователя: раздельные body/laptop-проходы; внутри каждого ряда все ноутбуки поверх всех тел, плечи соседей за крышками. У героя непрерывное затухание печати в неподвижную позу (3–3.8 с), пауза, опускание ноутбука и выглядывание, затем небольшой наклон головы и жест. Вместо проигрывания исходной анимации всего тела меняется только геометрия крышки; статичная правая кисть привязана к её углу и скрывается за панелью. Левая кисть увеличена до 48%, нижняя часть за ноутбуком, обводка 7.44 px как у второй кисти, покачивание ±1.2°. Рот непрозрачен и морфится из тонкой улыбки в широкую. Камера трогается в 6.5 с при удерживаемом жесте; затем рука опускается, голова возвращается, крышка открывается 8.15–9.45 с. Герой остаётся задумчивым без печати до ухода из кадра. Период мира увеличен до восьми колонок для точного цикла после его ухода. Проверены пиксельное совпадение входной позы с печатью, петля t=0/t=12, отсутствие повторной печати и фейда рта; ffprobe: 1920×1080 / 60 fps / 720 кадров / 12 с, полное декодирование PASS. Новый файл exports/blue-crowd/blue-crowd-trailer-v2.mp4 (22.5 MB), первая версия сохранена. Typecheck, 39 файлов / 1274 теста и build PASS.
+- (2026-10-23) Трейлер V3: по просьбе пользователя рот и покачивание головы перенесены из готового face-with-hand-over-mouth (кривые и зубные ряды кадров 20–115, без проблемного закрытия). Рот сначала увеличен до 40%, затем по уточнению ещё в 1.5 раза — до 60% исходника; минимальная высота 65%, без фейда и слишком тонкой линии. Голова наследует мягкое движение и небольшое сжатие/растяжение исходного смеха. Правая кисть подходит к точке захвата по дуге из-за крышки, стартовая позиция скрыта внутри панели. После начала движения камеры левый жест дополнительно раскачивается до ±8° с плавным набором и затуханием, опускается позже (7.8–8.4 с); крышка открывается 8.55–9.65 с. Ноутбуки по-прежнему поверх всех тел своего ряда. Сборка V3: exports/blue-crowd/blue-crowd-trailer-v3.mp4. Typecheck, 39 файлов / 1274 теста и build PASS; проверка пиксельного стыка героя и полного цикла PASS.
+- (2026-10-23) По просьбе пользователя сохранён воспроизводимый пайплайн трейлера: docs/trailers.md (сцена, наложение рядов/крышек, исходные кривые, решение рывков и появления кисти, бесшовная камера, проверка и компрессия); ссылка добавлена в CLAUDE.md и scripts/README.md. trailers/blue-crowd/build.ps1 собирает всё одной командой; -TelegramOnly только сжимает мастер. telegram.py фиксирует 720p / 30 fps / H.264 High CABAC / 1400 kbit/s / faststart и проверяет число кадров, длительность и полное декодирование. Проверен и сам скрипт, и PowerShell-обёртка: 2.09 MB, исходный мастер 22.86 MB сохранён отдельно.
+- (2026-10-23) 584 coffin: коричневый материал гроба, ручки, обивка и тени переведены в нейтральный серый с сохранением фактуры и исходных градиентов; цветы/стебли прежние. Внутри на подушке — лежащий синий силуэт с головой family/069, без глаз, белая улыбка, руки на груди, цельное тело без одежды/пояса. Векторные пути и градиенты спроецированы в наклонную плоскость ложа; персонаж внутри grob, под оригинальной крышкой. Окно исходника ip=120/op=300 уже равно 180 кадрам/3 с, тайминги и риг не менялись. Папка packs/blue/coffin содержит точный source.tgs, recipe/build/verify/README. Черновик 13.8 KB в библиотеке, без изменения ready/Telegram. Проверки: исходник побайтно, transforms и исходные контуры совпадают, серый материал; все 180 кадров имеют точно исходную внешнюю альфу, стык совпадает. Python-lottie Telegram checker PASS. Визуально проверены открытие, положение на подушке и перекрытие крышкой.
+  Общие проверки: typecheck PASS; первый общий тестовый прогон получил таймаут файлового наблюдателя server/remote.test.ts, отдельный повтор и затем полный прогон 39 файлов / 1274 теста PASS; build PASS. Код сервера не менялся.
+
+### 2026-10-23 · 584, 2.5D silhouette revision
+
+User rejected extruded primitive body. Replaced flat caps and vertical side walls with continuous rounded arm/body outlines and radial shading in the coffin floor projection. Rounded the head and removed the waist seam. Original rig and outer alpha preserved across 180 frames; TGS remains a draft, 13.7 KB. Restarted Vite on port 5173. Typecheck and all 1274 tests pass.
+
+### 2026-10-23 · 584 anatomy from 188–190
+
+User requested exact blue skull with ears, connected shoulders, believable legs/feet; 190 primary reference. Inspected rendered 188/189/190. Reused family skull with ears, replaced body silhouette and integrated upper arms, folded forearms and rounded feet without toes. Kept original 584 rig, grey materials, timing, exact outer alpha for all 180 frames. Draft only; no Telegram/ready changes.
+
+### 2026-10-23 · 584 approved raster → static vector
+
+User approved the slim minimalist ImageGen revision (reference saved in packs/blue/coffin/reference/approved.png) and requested close reconstruction with no character animation. Replaced prior procedural anatomy with hand-traced cubic paths and local gradients; preserved original coffin rig/lid animation. Output about 14.9 KB, exact outer alpha over 180 frames, zero loop delta, python-lottie validation passes. Draft only.
+
+### 2026-10-23 · 584 near-wall occlusion and lighting polish
+
+User marked blue bleed behind the inner near rim, uneven crown, oversized near leg, droplet feet and harsh bright rims. Added cubic path clipping against the existing near inner wall with 0.65 px inset (no masks, no rim overpaint), static-path/inside-plane regression check. Smoothed crown, narrowed near leg, simplified/darkened feet, softened rim lights with translucent nested strokes, extended leg gradient and added fading arm contact shadow. TGS 15.8 KB; 180-frame outer alpha and source rig verification pass.
+
+### 2026-10-23 · 193–194 blue clipboard, write → present
+
+User requested replacing police with blue character, keeping clipboard held at both loop ends, writing then turning page to camera instead of stowing. Grey board, white paper under metal clip/rivet; lettering deferred. User clarified original bust framing: clipboard only peeks at the bottom when writing, then approaches almost full canvas when presented. Added packs/blue/clipboard (one variant from 193/194; source files untouched), family head without eyes, white mouth, blue body and 168 writing hand; perspective rotation of board/page/clip with shared grip projection. 180f/60fps, 39 KB; exact loop, all-frame rendering, cropping/presentation regression and python-lottie checks pass. Typecheck, 1274 tests and build pass. Draft only.
+
+### 2026-10-23 · Clipboard: replace custom scene with original 193 rig
+
+User rejected the reconstructed scene. Rebuilt clipboard from original policewoman 193: preserved original NULL SCALE/BODY/HEAD/NULL FACE/Mouth rig and original framing/crop, removed hair/hat/uniform details, transferred original body and neck animation to blue shoulder silhouette; family head in source HEAD space. Original tablet and pen contours and writing motion retained and recoloured grey/black. Removed imported 168 hand and all added arm/grip shapes. Only tablet independently flips/approaches after writing; blank paper/clip/rivet on front.
+
+Latest steering: replace feminine lips with simple white smile; presentation leaves roughly top 1/6 clear and crops board bottom. Updated accordingly. 47.3 KB; 180 frames, exact loop; original rig movement within 0.15 px, source tablet/pen coordinates within 0.02 px while writing, no added hands, top-space and all-frame checks pass; python-lottie passes. Typecheck, 1274 tests, build pass. Draft only.
+
+### 2026-10-23 · Clipboard: facepalm scale and continuous motion
+
+User rejected small/floating framing, rushed tablet travel and end-of-return shaking. Increased original rig uniformly to 142%, aligned original matte bottom to canvas bottom; top of character y=61 px vs facepalm y=60 px. Independent cubic Bezier channels: turn in 44–80, approach 48–96; retreat 126–176, turn back 140–174. Retained top 1/6 margin of presented board, bottom crop, simple white smile, no extra hands. Pen retracts below frame before presentation.
+
+Removed piecewise clock with hidden hold and compressed 140→38 rewind. Character uses continuous source writing clock 38+29*(1-cos(2*pi*f/179)); max source speed 1.018 frames/frame, no fast-forward. Original breathing curve at half amplitude for close-up. Added checks for framing at bottom edge, facepalm-scale top, clock speed and bounded return head speed. 180 frames/exact loop, python-lottie and Telegram limits pass, 59.2 KB. Typecheck, 1274 tests and build pass. Draft only.
+
+### 2026-10-23 · Clipboard: шестисекундная сцена и исследование длительности
+
+Пользователь: сначала взгляд в камеру и кивок, затем письмо и показ планшета; проверить способ загрузить больше 3 секунд через ложную длительность. Проверены официальные требования Telegram и первичные документы sticker-convert: Duration spoof описан для WebM/Matroska EBML, для TGS аналогичного подтверждения не найдено (rlottie связывает время с диапазоном кадров/fps).
+
+Сохранён обычный трёхсекундный черновик. Отдельная сборка `node packs/blue/clipboard/build.mjs --six`: 360 кадров / 60 fps, прямое смешение исходной фронтальной и пишущей позы без прокрутки убирания, мягкий кивок, исходная геометрия/анимация ручки, показ с верхом y=84 и обрезанным низом. В библиотеке `clipboard-6s-preview.tgs` с честной длительностью, красная проверка 3с намеренно. Оба края цикла пиксельно совпадают.
+
+В exports/clipboard-6s — MP4-превью, прозрачные VP9 WebM 512x512 (207.0 KB) и 100x100 (68.5 KB). scripts/spoof-webm-duration.mjs меняет только Duration на 2.99с, все пакеты остаются побайтно прежними. Проверено полное декодирование всех 180 кадров / 30 fps = 6с и alpha. Документация/источники в docs/telegram-duration.md. Серверный приём и воспроизведение клиентами Telegram не проверены; пак не меняли, сообщений не отправляли. Typecheck, 39 файлов / 1274 теста и build PASS.
+
+### 2026-10-23 · Clipboard: approved torso, animated smile, exact source clip
+
+User rejected shoulder highlights, neck, a mismatching front clip and static mouth; asked whether TGS/WebM can share a pack, and for a regular 3s write/show loop. Confirmed the official API documentation explicitly permits mixing static, animated and video stickers in one set. Six-second file acceptance remains untested.
+
+Reused the approved facepalm BODY outline/fill/material through one affine fit into the original 193 rig; removed the old police neck and bright shoulder bands. Torso overlaps the chin throughout the cycle. Smile reuses the approved identification-card contour (frame 110), smoothly morphs from 46 to 58 local units in 3s / 46 to 57.25 in 6s, with no opacity fade. Removed the replacement rectangular front clip: the exact five original Tablet > Group 3 paths now project continuously with the board above its blank paper. Top fit uses the actual taller clip, leaving 85px; board bottom cropped.
+
+Updated both 3s TGS (52.9 KB, writing immediately, no initial camera pause) and 6s WebM candidates / master. verify.mjs checks source rig and tablet/pen/clip projected geometry at writing and turn keyframes (<0.008 px error), 180 frames and exact loop. New verify-appearance.mjs checks original torso contours/material and connected head/body in all 180 + 360 frames, animated mouth and source clip path count. Long WebM fully decodes all 180 frames at 30fps with alpha despite metadata 2.99s; 512px 205.8 KB / 100px 68.5 KB. Updated draft library; ready/ and Telegram untouched. Typecheck, all 1274 tests, build and 3s Telegram checks PASS.
+
+### 2026-10-23 · Clipboard 6s published to both existing Telegram sets
+
+User explicitly authorized adding the six-second version to both their emoji and sticker packs. Used a separate script scripts/publish-clipboard-webm.py, correct video/webm multipart + format=video, without restarting the running bot or overwriting live publisher state. Inspected both live sets, uploaded and added only the approved files with 📝 association, downloaded each placed file and verified SHA-256 against the local original. Receipts: exports/clipboard-6s/telegram-publication.json. Existing-set video/static/TGS mixing confirmed by real successful additions.
+
+Telegram rejected the first 100px emoji (70143 bytes) at addStickerToSet with STICKER_VIDEO_BIG, despite upload success. Re-encoded just the emoji at CRF34, 47422 bytes (46.3 KiB), all 180 frames / 30 fps retained; metadata 2.99s. Updated long-preview.mjs to use CRF34 and enforce <=64 KiB for videoemoji, <=256 KiB for regular video sticker. The actual server enforces a tighter emoji size than the general WebM guide.
+
+Success: blues_emoji_by_jhthkjbot, custom_emoji, 100x100, set count 56; blues_stickers_by_jhthkjbot, regular, 512x512, 210756 bytes, count 54. Both live entries is_video=true and server bytes unchanged. Server acceptance is now confirmed; actual user-device playback still requires viewing in Telegram. No chat messages sent.
+
+### 2026-10-23 · Private clipboard photo, standalone WebM
+
+User requested inserting their supplied photo onto the paper, ignoring the photo in Git, and exporting only a standalone six-second 512px video sticker. Added /packs/blue/clipboard/private/ to .gitignore before copying the image to private/photo.png; git check-ignore confirms exclusion and git ls-files confirms it is untracked. Source photo remains unchanged. photo-video.mjs --six and photo-video.py project the photo using the same board.front homography onto the existing 180 RGBA frames, only on the front face, preserving white paper margins and source clip. No Telegram calls or pack changes. Output exports/clipboard-photo/clipboard-photo-6s.webm, 214024 bytes, VP9 512x512 / 30fps / alpha, 180 decoded frames = 6s, Duration metadata 2.99s. Exact loop checked; displayed full-presentation PNG inspected.
+
+### 2026-10-23 · Clipboard head ratio and in-place Telegram replacement
+
+User requested taller facepalm-like head in 3s and 6s pack variants, bounds checks and replacement without duplicates; explicitly exclude the photo version. Normalised head silhouette/rim to facepalm height/width ratio 1.341 in every pose (old writing ratio 1.188; original frontal envelope also compressed differently). Jaw-relative transform, local clearance 10/22 units, presentation framing drop 50/74 keeps top margin when board fills frame. All other geometry/motion retained. Full padded-canvas rendering verify-head.mjs checks all 540 frames for crown/ears outside canvas: 3s bounds [113,30,425,464], 6s [80,13,421,458]. Rig/clip/paper, connected torso/head, smooth smile and exact loops checks pass.
+
+Live inspection found only the six-second clipboard in the two packs; no 3s clipboard present. Updated 3s draft (52.2 KB) without adding a new element. Used replaceStickerInSet on each exact previous 6s file, verified live count and position preserved and downloaded replacement bytes match. Emoji: 56 items, index 55, 46444 bytes; regular sticker: 54 items, index 53, 208037 bytes. Receipts exports/clipboard-6s/head-replacement.json, updated original publication receipt for future replacement. Photo WebM SHA256 remains 8E81B50750F5EB4C3D9F6E61F38AC1492B4EABADA13377098B78E5C4EAE0094C, not rebuilt or resent.
+
+Validation for taller head: verify.mjs, verify-head.mjs, verify-appearance.mjs and python-lottie 3s checker PASS. Typecheck and production build PASS. Default Vitest also discovered the separate exports/branch-smoke checkout and timed out running duplicate suites; rerun scoped to main project with --exclude exports/** --maxWorkers 4 passed 21 files / 647 tests. No application test/config changes made for this task.
+
+### 2026-10-23 · Eight user SVG clipboard signs sent privately
+
+User supplied packs/blue/signs/Frame 2087331232.svg through 2087331239.svg and explicitly requested each on the paper, each sent as a standalone sticker through their bot, no pack additions. Added signs-video.mjs --six: python-lottie SVG import retains exact cubic lettering; bakeSourceLayer + board.front project ink onto the latest approved six-second master, front only, under source clip. Rendered eight 512px VP9/alpha/30fps variants, 180 frames each, fake Duration2.99, 216–240 KiB all under256 KiB. Checked exact loop and full decoding; inspected all eight full-show previews on comparison.png. Outputs/manifest in exports/clipboard-signs. Original SVGs and private photo unchanged; photo SHA256 still 8E81B50750F5EB4C3D9F6E61F38AC1492B4EABADA13377098B78E5C4EAE0094C.
+
+Added scripts/send-clipboard-signs.py: direct multipart sendSticker avoids the generic-upload-as-document issue; numbered labels on each message; persisted receipts guard duplicates and uncertain sends. Sent and confirmed messages 289–296 to owner1336169515, all sticker.is_video=true,512x512,no set_name. All eight sent; no pack mutation endpoints called. Receipts exports/clipboard-signs/private-messages.json. Waiting for user's selection.
+
+### 2026-10-23 · Ninth sign variant
+
+User added signs/соси.svg and asked for one more variant with the same private-send workflow. Added --only-new to signs-video.mjs: retained the first eight outputs and receipts, rendered only new SVG as 09-sign.webm (238648 bytes, 512px VP9 alpha, 180frames/30fps/6s with metadata2.99). Inspected preview, loop and decode checks passed. Sent only variant9 via direct sendSticker: message297, confirmed video sticker with no set_name; no pack changes or repeat sends.
+
+### 2026-10-23 · Selected sign 9 published; 752 flag and 727 bubble drafts
+
+User chose sign9 (signs/соси.svg) for the main pack, then requested blue 752 flag with the existing n and 727 blue message bubble with n instead of dots. Replaced the blank six-second clipboard in both existing sets using replaceStickerInSet; unchanged positions/counts 56 emoji (index55),54 regular stickers(index53); downloaded replacement bytes match. Emoji100px CRF34 48671 bytes, sticker512px238648 bytes. Receipts exports/clipboard-6s/sign-selection.json; selection reproducibility in clipboard/selection.json. No new blank/sign duplicate added.
+
+Added n-flag/source.tgs (exact752), recipe/build/README: removed national star+yellow stripes, retained original cloth/outline/fold/light/shadow paths and rig; body palette matched blue pack. n is exact approved technologist-bust/logo.json path, attached to cloth through arc-length-sampled cubic top/bottom boundaries and baked every3f, including handles. Original highlights/shadows pass over white print. About41.5KB/180frames. Original flag cycle retained (lastframe is a moving pose, as in source).
+
+Added n-bubble/source.tgs (exact727), recipe/build/README: same round bubble/tail/radial volume and original NULL rotation bounce, blue gradient/outline/rim; removed three dot layers and inserted same white n at middle-dot centre, fixed to bubble rig. Source overshoot reached x515; entire rig fit95% about centre gives >=8px margin. Removed unused AE slider effects/expressions on NULL; actual bounce already baked to rotation. About2.9KB/180frames, pixel-exact loop.
+
+verify-n-symbols.mjs checks exact sources, unchanged source transforms, removed original emblems/dots, all180frames each have exact source alpha (bubble source given same framing) and no symbol spills, margins56/8px. Both Python-lottie Telegram checks pass. Draft library refreshed; new symbols not published or sent through bot pending user review. Private photo unchanged.
+
+### 2026-10-23 · Bubble shading and flag print stability
+
+User found727 bubble too pale and lower n slipping near70f on752; explicitly suggested another flag. Removed bubble's large inner pale overlay (Layer2 opacity0), restrained upper reflection (Layer3 opacity18), darkened blue radial ramp to6086a7/517594/44688b. Original bounce/framing and white n retained.
+
+Compared nearby flag rigs: external boundary points slide through folds. Replaced source752 with exact756, whose central circle supplies eight persistent print anchors. Removed circle; thin-plate deformation maps approved n through its original motion. Symmetric sigma2.5-frame smoothing softens short source key changes, baked every3f with rounded3digit coordinates to fit56.2KB. Original cloth shading, contour and transforms preserved. All180 frames retain exact source exterior alpha;56px margin. Max letter step in60–90f is2.514px/frame; no sudden lower-only relocation. Bubble retains8px margin and exact loop. No Telegram sends or pack changes.
+
+Validation for this correction: typecheck, scoped Vitest (21files/647tests), production build PASS. Both TGS files pass python-lottie Warning-level validation. Library refreshed with756 as the replacement flag source.
+
+### 2026-10-23 · Centre the flag n
+
+User approved bubble shading but requested n right/up on the flag. Shifted print sampling point in rest-material coordinates by[28,-10], about22px right/9px up in the open pose; the offset follows the existing deformation. Checked rendered poses0–179, exact exterior alpha,56px clearance, max step60–90f2.786px, Python-lottie PASS,56.3KB. Updated local draft only.
+
+### 2026-10-23 — Кастомизация текста и стабильный фотофлаг
+
+В общих «Черновиках» 569 (бочка) и 704 (подгузник) открывают ввод своего текста,
+предпросмотр, скачивание TGS и отправку отдельным стикером через существующего
+бота. Надпись до 32 символов переводится в контуры Roboto 900, сохраняет
+цилиндрическую проекцию бочки / исходный поворот подгузника. Персональная сборка
+изолирована в exports/photo-custom; общие варианты не перезаписываются.
+Фотофлаг 950 переведён на периодическую сетку 24×12 без складок с инверсией
+координат. Тесты проверяют отсутствие переворота ячеек, скачков и стык цикла.
+Фото бюллетеней 632 следует кривым Безье бумаги через сетку Coons.
+Проверены typecheck, 1288 тестов, production build, оба TGS валидатором и
+реальные задания через localhost API без отправки тестовых стикеров.
+
+### 2026-10-24 — Стас в яйце 255 и шляпе 222
+
+Добавлены egg-photo-255.webm и hat-photo-222.webm в общие «Черновики».
+Источник private/staspng.png сохраняет альфа-канал, игнорируется Git и закрыт
+от статической выдачи существующим правилом private. Цыплёнок заменён фото
+с исходной иерархией движения головы/тела, уши в шляпе удалены; фото выезжает
+и уходит внутрь, родная анимированная кривая переднего края служит маской.
+Оба шаблона подключены к выбору фото и отправке отдельным стикером в бота.
+В существующий Telegram-набор автоматически не добавлялись.
+Проверены листы кадров, VP9 alpha, 512×512, 30 fps, 3 секунды, размер до 256 KiB,
+интервалы появления, typecheck, 1288 тестов и production build.
+
+### 2026-10-24 — Зацикленный ролик с четырьмя синими в лифте
+
+Новая независимая сцена trailers/blue-elevator. Сгенерирован пустой фон кабины
+в стиле Telegram-эмодзи; пользовательский blue.svg сохранён побайтно как
+source.svg, 24 его пути переводятся в кубические контуры tlottie и перекрашиваются
+в #335375 / #44688b / #6086a7 / #7ba3c3 / #a5d6ea. Передний левый зеркален,
+передний правый в исходной позе, блики направлены к центру потолочного света.
+Деформация гладкая, с контрольными зонами таза, груди, шеи, головы, локтей и кистей.
+Общее ускорение кабины возбуждает разные затухающие пружины; периодическое
+решение даёт бесшовный цикл без стартового перехода. Нет растровых разрезов тела.
+Экспорты: 10 секунд, 4:3, мастер 1440×1080×60 (5.86 MB), Telegram 960×720×30
+(1.65 MB), PNG-постер, раскадровка, motion.json и отчёт проверок. Пиксельное
+совпадение стыка и непрерывность рига проверены, оба MP4 полностью декодированы.
+Typecheck, 1288 тестов и production build проходят. В бота не отправлялись.
+
+### 2026-10-24 — Лифт v2: постоянная вибрация и устойчивые фигуры
+
+По замечанию пользователя убран упругий волнообразный риг корпуса. Таз/грудь
+и голова поворачиваются жёстко, руки имеют отдельные повороты плеча и локтя;
+у четырёх людей разные фазы и частоты idle. Высокочастотная вибрация кабины
+идёт постоянно; человеческий отклик фильтруется и сильно затухает. Тесты
+проверяют сохранение ширины головы, груди и предплечий, разные движения рук,
+периодичность и отсутствие инверсии. Дальний ряд затемняется только ниже плеч
+с плавным градиентом до 22%, головы сохраняют верхний свет. Выходы v2 отдельные,
+видео v1 и его метаданные сохранены в exports/blue-elevator/v1/.
+
+### 2026-10-24 — Лифт v3: спокойная камера и малый idle рук
+
+По просьбе пользователя убрана частая тряска кабины: спокойное покачивание
+с периодами 3–5 секунд и редкие небольшие толчки. Ускоренный размах рук v2
+уменьшен примерно вчетверо, циклы плеч/локтей замедлены. Согласованные наклоны
+корпуса и головы сохранены побайтно в параметрах всех 2400 поз; затемнение
+заднего ряда не меняется. Отдельные файлы blue-elevator-v3.mp4 и
+blue-elevator-telegram-v3.mp4. Проверки рига, typecheck, 1288 тестов и build
+проходят. Источники и все предыдущие MP4 сохранены.
+
+### 2026-10-24 — Лифт v4: почесать ногу в начале
+
+На 0.35–2.55 секунды крайний правый персонаж внутренней (экранной левой)
+рукой подводит ладонь к бедру, делает три маленьких почёсывания, затем
+возвращает руку. У жеста отдельные локоть и запястье: ладонь поворачивается
+и немного поджимается. Отдельный проход предплечья накладывается поверх бедра,
+верх тела и другая рука проверены побайтно как неизменные. Базовые движения
+v3, освещение и 10-секундный цикл сохранены. Код: scratch.py, данные:
+exports/blue-elevator/scratch.json. Typecheck, 1288 тестов и build проходят.
+
+### 2026-10-24 — Лифт v6: исходные кисти, сгиб пальцев, жест головы
+
+Исправлена причина вытянутых кистей и толстой нижней обводки: продолжение
+обрезанных бёдер ниже кадра ошибочно растягивало также пальцы. Теперь действует
+только на ноги, кисти сохраняют исходную геометрию SVG. Растровый разрез руки
+и сгиб всей ладони убраны. В начале сгибаются только четыре длинных пальца
+правого переднего персонажа, ладонь и большой палец неподвижны относительно
+предплечья. Предплечье чуть (2.3°) подводится к бедру для реального контакта.
+На 7.9–8.85 секунды левый передний персонаж наклоняет голову на 2.2° вправо,
+к центру кадра, затем возвращает. Спокойная поездка и затемнение сохранены.
+Проверены неизменность ладони/большого пальца от сгиба пальцев, отсутствие
+растяжения кистей, направление наклона, периодичность. Typecheck, 1288 тестов
+и build проходят. Артефакты blue-elevator-v6.mp4 и telegram-v6.mp4.
+
+### 2026-10-24 — Сохранённые видео, синий Skibidi и широкая лента
+
+Одобренные crowd v3 и elevator v6 скопированы в exports/post-videos/01-blue-crowd
+и 02-blue-elevator (мастер и Telegram-версия). Хэши/метаданные в manifest.json,
+галерея index.html. Новый ролик 03-emoji-strip: 1920×360 / 60 fps и 1280×240 /
+30 fps, 11.6 секунды. N-bubble вырастает из наклонённого маленького состояния,
+эмодзи синего пака переключаются с ускорением до 0.05с и замедлением, N-флаг
+играет полный исходный цикл один раз, уменьшается/исчезает. Skibidi исключён.
+
+По приложенному TGS создан packs/blue/skibidi-toilet: синяя модель головы,
+синяя шея, дружелюбная белая улыбка из mouth 3 стикера 070, серая бумага.
+После явного уточнения пользователя о разрешённой работе с синим паком
+перенесён из отдельной emoji-папки в синие черновики exports/blue.
+Убран просвет головы под сиденьем на 18–22 кадрах: нижние кубические сегменты
+подрезаются по родному сокращению исходного лица; обратное появление также
+проверено. Рот использует родное окно видимости. 30 KB, 180×60 fps, валидатор
+без предупреждений; 180 кадров рендерятся. В Telegram не публиковался.
+Проверки рига, ленты, typecheck, 1288 тестов и production build проходят.
+
+### 2026-10-24 — порядок широкой ленты v2
+
+После N-bubble: facepalm в момент удара, identification-card, partying-face. Середина случайная с ускорением. Замедление: coffin, screaming-face, закрывающийся technologist-bust, family, затем полный цикл n-flag. Ролик 11.7 с, мастер и Telegram-копия обновлены в exports/post-videos/03-emoji-strip; v1 сохранён в exports/blue-carousel.
+
+### 2026-10-24 · New189 scrolling counter
+
+User requested a separate long emoji: freeze the left silhouette from189, duplicate it into an infinite-looking row moving left (camera right), left copies over right, sequential numbers above each head using the same font as n, maximize length within size. Added counting-crowd/{source.tgs,build.mjs,verify.mjs,recipe.json,README.md}; exact original L-light/L-dark/L-silhouette frozen at0, no right bust/fingers/late smile. Cached40 body phases and10 Roboto Black glyph sprites; each frame only composes cached sprites with advancing numbers, no huge Lottie timeline.
+
+Optimized100×100 transparent VP9:10fps,20px/s,40px pitch,CRF42,long GOP.92 full passages=184s/1840frames,261686bytes (under262144), numbers through94 visible. Next93passages/186s264461bytes fails size, so92 chosen for this quality/speed profile. Source untouched; left/front draw order retained. exports/emoji/counting-crowd.webm uses2.99 metadata; honest full-length preview and probes retained in exports/counting-crowd. Full decoding verified1840 nonempty frames with transparency, unchanged payload outsideDuration, body-cycle mean codec error0.466. Actual184s Telegram acceptance/client playback not tested; no bot send or pack changes.
+
+Validation: source/render verification PASS; typecheck,24 test files/661 tests, production build PASS. Refreshed library with counting-crowd in emoji drafts; no existing sticker edits.
+
+### 2026-10-24 — финал широкой ленты v3
+
+По просьбе пользователя флаг быстро линейно уменьшается в ноль за 0.18 с, без вращения и растворения. Выход 0.2 с, весь ролик 11.2 с. Остальные кадры и порядок сохранены. Обе копии в папке поста обновлены; v1/v2 сохранены.
+
+### 2026-10-24 · Separate15s clipboard dozing sticker
+
+User rejected low-res long counter quality and requested a new15s clipboard scene: writes/smiles/nods/listens, smile fades geometrically, head droops, source Zs appear, sudden wake, two nods, resume seamless writing; never show tablet front. Added clipboard-sleep/ independent of approved clipboard/sign/photo. Stored approved6s vector base and090 Z source locally. Retimed only writing master90–168, integrated activity slows/stops pen during sleep and resumes without fast-forward. Frontal listening blends, quintic ease nods/droop and short wake overshoot; mouth height10→1.5px shape morph. Three090 Z outlines stagger/float. Removed presentation-page layer completely; original tablet/clip held steady, torso breathing frozen to preserve bitrate, pen still moves. 900frame/60fps local vector master, exact pixel loop; head/Z overscan bounds[82,18,494,436].
+
+Rendered450 native512px frames,30fps. After final polish, head keeps its writing pose except explicit listening/nod/sleep/wake curves rather than bobbing with each pen cycle. Final CRF35/38 exceed limit (315858/276578bytes);41 fits243253bytes (237.6KiB). Chose full resolution/frame rate with compression instead of100px downscaling. VP9/alpha/no audio, patched onlyDuration2.99, honest WebM/MP4 previews and verification in exports/clipboard-sleep. Draft exports/emoji/clipboard-sleep-15s.webm. Fully decoded450frames beyond spoofed metadata; all checks passed. Typecheck,24Vitestfiles/661tests and production build PASS. No existing pack files/Telegram sets/private photo changed;15s server/client acceptance not yet tested.
+
+### 2026-10-24 · Clipboard sleep: exact approved Z animation
+
+User approved the15s scene but requested the exact larger Z appearance/positions/motion from the existing yawning sticker instead of small custom letters. Stored exact ready/yawning-face.tgs as clipboard-sleep/zzz-donor.tgs. Removed manually normalized23/29/36px glyphs and hand-made trajectories. Imported donor Z1/Z2/Z3 with every path, paint, scale/anchor/rotation/position and original Resize103.3% parent. Source100..179 emergence runs at its original60fps starting7.9s, then holds until wake fade10.42–10.56s. No spatial change. Isolated mature Z rig renders pixel-exactly like donor179; head/Z bounds[82,18,448,436]. All other scene channels unchanged; pixel-exact loop retained.
+
+Rebuilt450frames/512px/30fps VP9 alpha: CRF35=300199B,38=263146B exceeds262144;41=232145B fits226.7KiB. Full decode/format/alpha/bounds/nods/smile/donor regressions PASS. Typecheck PASS;660 tests initially pass with one remote integration timeout during encoding, that exact failed test passed on isolated rerun; production build PASS. Updated local WebM/MP4 previews and editor draft; no Telegram publication.
+
+### 2026-10-24 ·149 blue hand, unified hand highlights, continuous sleeping Zs
+
+User requested149 blue, and approximate highlight consistency across all standalone hands, specifically victory,raised-back,palms-up,finger-ok,heart-hands,middle-finger. Added pinching-hand exact149 source/recipe/README, restyled37.6KiB/180f/60fps; original rig/paths retained, Python-lottie PASS. Added hand-highlights.mjs palette helper, hand-only opt-in recipes and style8cb7d3/85% peak for dense fills; head rim unchanged. Normalizes solid blue highlights and uniform blue alpha-gradient reflections, retains softer opacity envelopes and thin strokes, skips mattes and original heterogeneous sparkle gradients. Existing approved/current hand files processed directly to preserve manual geometry fixes:54 ready/draft files updated, non-paint JSON structure exactly equal, palette idempotent, Telegram checks PASS. Backups and comparison sheet saved; gift builder/verification and loser selector adapted for reproducibility. New149 remains a draft. Local56-item archive rebuilt/validated; no Telegram mutations.
+
+User also disliked Z freeze during sleep and requested flight plus disappearance small→large. Original donor emergence/scale retained. After9.217s, each Z smoothly picks up a gentle outward/upward drift (small6/-10,medium9/-13,large12/-16px/s). No static terminal hold. At wake, rapid80ms fades begin10.42/10.51/10.60s, smallest first. verify.mjs confirms positive continuous flight, ordered fades, exact donor glyph rig after factoring drift,900f exact loop, bounds[82,18,464,436]. Rebuilt512px/30fps/15s WebM249689bytes CRF41, all450frames decoded with alpha. No existing clipboard/sign/photo variants changed.
+
+Validation for this batch:149 Python-lottie PASS; all modified hand files Telegram format/size checks PASS, exact non-paint structure and palette idempotence; gift-hand source-rig/contour/all180frame checks PASS. Typecheck PASS;660 tests passed in initial run and the single remote integration polling timeout passed on isolated rerun; production build PASS. Library refreshed (149 draft),56-item ZIP verified. No bot sends or Telegram set replacements.
+
+### 2026-10-24 · Requested publication of all updated hands,149; earlier Z and slower pen
+
+User explicitly requested adding149 and replacing the already published hands in the pack. Added approved pinching-hand to ready/emoji.txt and rebuilt57-item local ZIP. Prepared live SHA256/decompressed non-paint geometry matches for both existing owned sets. Emoji set59items contains29 matching hand versions (including3old L colour revisions); regular set57items contains27. No missing base hand types. Publication script publish-hand-updates.py preserves every old position and unrelated sticker, only appends149, shares uploads across sets, paces heavy calls5s, persists intent/acks/verification and handles ambiguous replies by reconciliation. For pre-existing duplicate L slots, gzip header variants have identical decoded Lottie but distinct uploaded file bytes; no duplicates appended. Running publisher control service was stopped; elevated CIM confirmed no local bot publisher process. Bot process/state untouched.
+
+Independent scene edit: motion.json writing speed1→.82@3s→.55@5s→.27@6.5s→0@8.1s, stays asleep then smoothly resumes after waking,3integrated cycles for exact loop. Z clock starts6.4s, actual visible opacity>1% begins6.474s; donor size/entry, continuous drift and small→large wake disappearance retained. Bounds[82,14,482,436]. Native512px/30fps15s video CRF42=256580bytes,450frames fully decoded; visual/temporal/loop checks PASS. Existing 3s/6s selected signs/private photo unchanged.
+
+### 2026-10-24 · Steered Z flight: bobbing rise and sequential pops
+
+While hand publication was in progress, user requested a livelier up/down rise with upward tendency and popping at the end. Added smoothly enveloped vertical sine1.3s(amplitudes5/7/9px) and horizontal sway1.8s with per-letter phase offsets, layered over existing gentle upward/outward drift after donor emergence. At wake each glyph briefly inflates12%, contracts, fades and emits4short outlined white rays; original small→medium→large timing retained. Earlier writing slowdown and Z onset6.474s retained. Verify now asserts both signs of vertical velocity plus net ascent, inflation and visible pop rays, ordered disappearance, exact glyph source rig excluding custom position, exact loop and full decode. All effects overscan bounds[82,12,482,436]. Final native512px/30fps15s VP9258553bytes(CRF42). Updated draft and honest previews; typecheck,24files/661tests,production build PASS.
+
+### 2026-10-24 · Hand publication completed and verified; seamless Z handover
+
+Completed requested Telegram changes: emoji set60items (29existing hand versions replaced in place,149 appended once); regular set58items (27replaced,149 appended once). Every new downloaded file SHA256 matches planned bytes, all unrelated sticker UIDs/positions unchanged, only+1 count per set. Existing3L slots retained; gzip-only distinct headers decode to identical updated Lottie. One108s upload429 was honored with adaptive pacing, then all operations completed. Durable complete receipt exports/hand-publication/result.json and30 importable upload receipts; bot process/state never stopped/restarted/edited, no chat messages sent.
+
+User then requested removing the pause between donor Z emergence and floating. Added zHandoverLead0.45s and zFloatRate0.85: extra flight starts during the last27source frames and is already moving before source179, preserving the approved wave/pops, early6.474s appearance and progressive writing slowdown. Verify asserts the early overlap, bobbing and net ascent, ordered pops, exact glyph source/loop, all450video frames. Bounds[82,12,480,436]; final WebM259157bytes,CRF42,512px/30fps/15s. Updated preview/draft; scene remains a separate draft, not added/replaced in Telegram. Latest app checks24files/661tests,typecheck,build PASS; targeted final scene checks PASS.
+
+### 2026-10-24 · Approved dozing clipboard published in both sets
+
+User explicitly approved the final15s scene and requested adding it to both sets. Prepared a separate100×100/30fps emoji directly from the450 native frames; main512×512 sticker unchanged. First emoji111909bytes(CRF30) uploaded but addStickerToSet rejectedSTICKER_VIDEO_BIG (no set mutation). Preserved rejected receipt; encoded compact100px CRF40/cpu1/longGOP62954bytes with identical450frame/15s scene and alpha, successfully added. prepare-telegram.mjs now conservatively caps emoji64000bytes; no claim that the generic documented256KB limit applies to this observed server behavior.512px259157bytes(CRF42) accepted unchanged.
+
+Both additions verified by exact SHA256 downloads, dimensions/is_video and prefix UID/order comparison: blues_emoji_by_jhthkjbot61items,new index60; blues_stickers_by_jhthkjbot59items,new index58. Associated both📝 and😴. Stored durable complete receipt exports/clipboard-sleep/telegram-publication.json and stable local publication.json/recipe statuspublished for future replacements. Source scene/loop/timing unchanged; no chat messages or bot restart/state edits. Compact emoji fully decoded450frames with alpha. Typecheck,24testfiles/661tests,production build PASS.
+
+### 2026-10-24 · Censorship saw blue draft; blue WebM draft placement
+
+User supplied censpoop.tgs: replace poop with blue head only, keep its mouth and saw action, remove eyes/fly/green stink/black connecting arms, blue detached gloves, grey saw grip. Added censorship-saw/{source.tgs,build.mjs,verify.mjs,recipe.json,drawing.json,README.md}. Source stored byte-exact (SHA2562c96b25629ee3a56151a19a94cd2fd252cf75fa5757c9af768ee18f701d4e03d). Canonical neckless head with ears,314x421 facepalm proportions,12px outline and common palette replaces BODY geometry; all inherited rig/motion/timing kept. Original mouth/teeth shapes retained and whitened, tooth separators blue. Static head alpha mattes clip the original side entrance behind cheek instead of leaving mouth outside the narrower silhouette. Connector layers become invisible parents to retain original hand motion; red sign/diagonal/chips/blade layers exact. Output exports/blue/censorship-saw.tgs18284bytes,180frames/60fps/3s. Contact sheet exports/sheets/blue-censorship-saw.png.
+
+User requested all new blue work in blue drafts and reported sleeping clipboard missing there. Moved its preview alias from exports/emoji to exports/blue; patched video.mjs for reproducible placement, unchanged SHA256ba46fddabfab14aa827f13e15d49ae6773abd446a4bcb2483d9b323fda66a8fa (matches published512px file). Library now indexes WebM in blue drafts and counts decoded frames via ffprobe instead of hardcoded90; existing video preview reused. TGS-only Telegram panel excluded for video selections. Library index contains both censorship-saw and450-frame clipboard-sleep-15s in drafts, not general emoji-drafts. No Telegram mutations; sleep publication and private photo untouched. Future blue draft placement documented.
+
+Verification: original non-paint geometry/rig checks, all180frames mouth-within-head and nonempty, pixel-exact loop, Telegram app checks, python-lottie Warning-level PASS. localhost5173 HEAD200 for both output files (WebM MIME video/webm). Typecheck PASS,24Vitestfiles/661tests PASS (single worker), production build PASS. No UI navigation or process restart.
+
+### 2026-10-24 · Censorship saw: blue cuff, consistent hand outline, turning ears
+
+User reported white fragment at left hand around95–98, grey right-hand outline, and stationary ears during the source face turn. Left fragment was the white sign seen through an open thumb seam plus the original30%-opacity glove shadow. Added a small animated blue seam backing; made the cuff backing opaque blue6086a7 and placed it below the original finger contours. All original finger shapes/rig/timing remain. Recoloured the separate SAW Shadow stroke335375 and its low-opacity fill44688b; recoloured previously yellow SAW Back to the same grey grip palette.
+
+Head now morphs only ear segments: front contour through15, smooth earless temple/jaw by23, hold through27, ears restore by35. Crown rim endpoints/control handles match exact subdivided side curves; mouth alpha mattes inherit the same animated contour. Original mouth, body rig, saw, sign, duration and exact loop retained. Final20514bytes,512px/60fps/180frames, blue draft replaced in place. Updated build/verify/README; visual review of turn and95/98, all180frame containment/rig/loop checks and Python-lottie PASS. No Telegram mutations or app navigation.
+
+### 2026-10-24 · Censorship saw: last opening-hand seam at65–67
+
+User approved everything except tiny white gap between blue finger/palm pieces near65. Isolated the left hand at61–68 and reproduced the triangular opening between the middle finger and palm (old thumb-only backing stopped too early). Extended the existing behind-fingers blue backing to the middle-finger base, sampling the original geometry every frame instead of every3frames to follow the quick entrance precisely. No original finger/hand/head/mouth/saw keyframes changed. Before/after contact sheets exports/censorship-saw/seam-before.png and seam-after.png confirm gap closure at65–67 with original outlines intact. Rebuilt blue draft23839bytes/3s/60fps; all180frame rig/mouth/loop checks and python-lottie PASS. Refreshed library; no Telegram changes.
+
+### 2026-10-24 · New blue Chill draft from chillstick.tgs
+
+User approved the censorship-saw fixes and said they would add it themselves; no publication performed. Requested another supplied sticker recoloured purple to blue, including the late heart. Added packs/blue/chill/{source.tgs,build.mjs,recipe.json,drawing.json,README.md}; source SHA25622ccaccc1a67a066a6d6ac51c6f905734e99c0b9a462b478e33b293a00053006. Build changes only RGB for blue/violet/magenta paints, including all animated gradient colours, maintaining source luminance through a blue ramp233d58→335375→44688b→6086a7→7ba3c3→a5d6ea→white. Hearts, glow, buttons, collar violet edging and small pink sparks recoloured too; water-drop layers exact, neutral/cyan/white reflections preserved. All source geometry, animation/easing, stop positions/alpha, opacity and timing exact.
+
+Output exports/blue/chill.tgs24196bytes,512px/60fps/180frames/3s; exact loop. Comparison exports/sheets/blue-chill.png visually reviewed. Independent full JSON comparison after zeroing RGB confirms only RGB changed; alpha pixel-exact against source on all180frames. Telegram checks and Python-lottie PASS; refreshed library places Chill in blue drafts. No ready additions, bot sends or set edits.
+
+### 2026-10-24 · Corporate gadget stack from clay.tgs
+
+User supplied clay.tgs and requested replacing three clay tablets with556 laptop,557 keyboard,554 phone, replacing bone with black168 pen, removing impact dust, and replacing laptop Telegram logo with the existing n. Stored exact local sources under office-clay/; source SHA256e4166d4371acbe35f117ff88cce69b15d67b0f7d08a74adb890cb1e37a898dbd. During review user set final order bottom→top laptop/keyboard/phone, requested realistic smaller phone, and then90degree in-plane rotation of laptop/keyboard so long axes follow the stack. Final layouts implement all steering.
+
+Built using source tablet/pen ks and null hierarchy unchanged; sampled plane contours control nested rotation/scale/rotation via SVD, so detailed frozen donor keys/icons stay static rather than thousands of animated paths. Donor poses laptop25closed,keyboard0,phone0front/37back,pen0. Laptop keyboard hidden under closed lid omitted; full compound Telegram logo replaced by grey disc and exact approved technologist-bust Roboto Black n. Phone screen icons imported from nested asset, its yellow alpha matte omitted; no yellow screen artifact. Keyboard dense shadow/matte pair omitted for size; actual keys/case/bevels retained. Source clay, writing, bone shadow, impact dust/debris removed. Phone compact34%width/62%length; laptop108%/80%,keyboard100%/43% before the requested90degree turn.
+
+Output exports/blue/office-clay.tgs48880bytes,512px/60fps/180frames/3s; blue drafts only, no bot or set changes. Source comparison exports/sheets/blue-office-clay.png and1024px poses reviewed. Verify asserts exact source ks/parents/in-out timing and final order, original detailed keyboard, N logo and Telegram checks; all180frames on expanded768pxcanvas fit inside original512px bounds[48,44,469,499], no empty frames, pixel-exact loop. Python-lottie PASS. App typecheck,24Vitestfiles/661tests,production build PASS. Build/verify/README/donors/recipe/drawing saved for reproducibility, library refreshed.

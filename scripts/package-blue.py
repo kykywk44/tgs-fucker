@@ -16,7 +16,7 @@ EMOJI = dict(line.split(' ', 1) for line in MAPPING.read_text('utf-8').splitline
 
 files = sorted(READY.glob('*.tgs'))
 assert files, 'No approved files'
-assert not any('technologist' in p.stem for p in files), 'Technologist is excluded'
+assert not any(p.stem == 'technologist' for p in files), 'Old technologist is excluded; use technologist-bust'
 assert {p.stem for p in files} == set(EMOJI), 'Update emoji mapping for ready files'
 payloads = {}
 manifest = []
@@ -33,7 +33,7 @@ for file in files:
 
 readme = f'''Синий пак — {len(files)} анимированных эмодзи
 
-В папке tgs — готовые файлы для Telegram. Оба technologist исключены.
+В папке tgs — готовые файлы для Telegram, включая technologist-bust, если он добавлен в пак.
 Формат: TGS, 512×512, 60 кадров/с, до 3 секунд, каждый файл до 64 КиБ.
 
 ЗАГРУЗКА

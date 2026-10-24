@@ -17,13 +17,14 @@
 
 import { execFile, spawn } from 'node:child_process'
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, watchFile, unwatchFile, type Stats } from 'node:fs'
 import { copyFile, readFile, rm, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import type { Plugin } from 'vite'
+import { photoStickers, isPrivatePhotoPath } from './photo-stickers.ts'
 
 const run = promisify(execFile)
 const COOKIE = 'tgs_session'
@@ -224,7 +225,10 @@ async function addToTelegram(opts: RemoteOptions, input: Record<string, unknown>
   const copied = files.filter((f) => !f.before).map((f) => f.id)
   const started = await bot(opts, '/append', { names, files: files.map((f) => `${f.id}.tgs`) })
   if (started.code >= 300) {
-    return { code: started.code, body: { ...started.body, copied, note: 'Файлы уже в ready/ и в архиве; повтори, когда бот освободится.' } }
+    const note = started.code === 409
+      ? 'Файлы уже в ready/ и в архиве; повтори, когда бот освободится.'
+      : 'Файлы сохранены в ready/ и в архиве. Проверь связь бота с Telegram и повтори отправку.'
+    return { code: started.code, body: { ...started.body, copied, note } }
   }
   return { code: 200, body: { ...started.body, copied } }
 }
@@ -232,6 +236,7 @@ async function addToTelegram(opts: RemoteOptions, input: Record<string, unknown>
 // ---------- the plugin ----------
 
 export function remote(opts: RemoteOptions): Plugin {
+  const photo = photoStickers(opts.root)
   const expected = opts.password ? sessionValue(opts.password) : ''
   const failures = new Map<string, { count: number; until: number }>()
   const authed = (req: IncomingMessage) => isLocal(req) || (!!expected && same(cookies(req)[COOKIE] ?? '', expected))
@@ -239,13 +244,30 @@ export function remote(opts: RemoteOptions): Plugin {
   return {
     name: 'tgs-remote',
     configureServer(server) {
+      // Separate data notification: neither a newly approved TGS nor rebuilding
+      // the thumbnail index is a source-code change requiring page navigation.
+      const indexFile = join(opts.root, 'library/index.json')
+      const changed = (current: Stats, previous: Stats) => {
+        if (current.size && current.mtimeMs !== previous.mtimeMs) {
+          server.ws.send({ type: 'custom', event: 'tgs:library-updated', data: { revision: current.mtimeMs } })
+        }
+      }
+      watchFile(indexFile, { interval: 1500, persistent: false }, changed)
+      server.httpServer?.once('close', () => unwatchFile(indexFile, changed))
       server.httpServer?.prependListener('upgrade', (req: IncomingMessage, socket: Duplex) => {
         if (!authed(req)) socket.destroy()
+      })
+
+      // Sprite names change with their content (scripts/library.mjs): the phone may keep them.
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.startsWith('/library/thumbs/')) res.setHeader('Cache-Control', 'private, max-age=31536000, immutable')
+        next()
       })
 
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? '/', 'http://x')
         try {
+          if (isPrivatePhotoPath(url.pathname)) return send(res, 404, '', 'text/plain')
           if (url.pathname === '/__login') {
             if (req.method !== 'POST') return send(res, 200, loginPage())
             const ip = clientIp(req)
@@ -274,6 +296,7 @@ export function remote(opts: RemoteOptions): Plugin {
             return page ? send(res, 303, '', 'text/plain', { Location: '/__login' }) : json(res, 401, { error: 'нужен вход' })
           }
 
+          if (await photo(req, res)) return
           if (!url.pathname.startsWith('/api/telegram/')) return next()
           const route = url.pathname.slice('/api/telegram/'.length)
           if (route === 'info' && req.method === 'GET') {

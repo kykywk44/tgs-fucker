@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import threading
 import time
 import unittest
 import urllib.error
@@ -40,12 +41,20 @@ class FakeAPI:
         self.add_count = 0
         self.sizes = False
 
+    def entry(self, file_id, kind):
+        """A sticker as a set holds it: a custom emoji also has its custom_emoji_id."""
+        entry = {k: v for k, v in self.files[file_id].items() if k != 'emoji_id'}
+        if kind == 'custom_emoji':
+            entry['custom_emoji_id'] = self.files[file_id]['emoji_id']
+        return copy.deepcopy(entry)
+
     def call(self, method, params=None, file=None):
         self.calls.append((method, copy.deepcopy(params), file))
         if method == 'uploadStickerFile':
             cached = {'file_id': 'file-' + file[0], 'file_unique_id': 'unique-' + file[0]}
             # a set's sticker can also tell its size (then the bot looks at its bytes)
             self.files[cached['file_id']] = dict(cached, file_size=len(file[1])) if self.sizes else cached
+            self.files[cached['file_id']]['emoji_id'] = 'emoji-' + file[0].removesuffix('.tgs')
             return copy.deepcopy(cached)
         if method == 'getStickerSet':
             if params['name'] not in self.sets:
@@ -53,7 +62,7 @@ class FakeAPI:
             return copy.deepcopy(self.sets[params['name']])
         if method == 'createNewStickerSet':
             self.sets[params['name']] = {'title': params['title'], 'sticker_type': params['sticker_type'],
-                                        'stickers': [copy.deepcopy(self.files[s['sticker']]) for s in params['stickers']]}
+                                        'stickers': [self.entry(s['sticker'], params['sticker_type']) for s in params['stickers']]}
             if self.fail_after_create:
                 self.fail_after_create = False
                 raise bot.ApiError(method, 0, 'timeout after creation')
@@ -62,7 +71,7 @@ class FakeAPI:
             self.add_count += 1
             if self.add_count == self.fail_before_add_number:
                 raise bot.ApiError(method, 400, 'simulated invalid file')
-            entry = self.files[params['sticker']['sticker']]
+            entry = self.entry(params['sticker']['sticker'], self.sets[params['name']]['sticker_type'])
             existing = self.sets[params['name']]['stickers']
             if entry not in existing:
                 existing.append(copy.deepcopy(entry))
@@ -253,6 +262,19 @@ class V2Tests(unittest.TestCase):
         self.assertTrue(all(p['message_id'] == 42 for p in edits))
         self.assertFalse(any(m == 'sendMessage' for m, _, _ in self.api.calls))
 
+    def test_live_progress_creates_one_message_then_edits_it(self):
+        text = ['Начинаю']
+        live = bot.LiveProgress(self.api, 7, None, lambda: text[0])
+        live.update()
+        text[0] = 'Загружаю'
+        live.update()
+        live.finish('Готово')
+        text[0] = 'Другая задача'
+        live.update()
+        self.assertEqual([m for m, _, _ in self.api.calls], ['sendMessage', 'editMessageText', 'editMessageText'])
+        self.assertEqual([p['text'] for _, p, _ in self.api.calls], ['Начинаю', 'Загружаю', 'Готово'])
+        self.assertTrue(all(p['message_id'] == 42 for m, p, _ in self.api.calls if m == 'editMessageText'))
+
     def test_add_wizard_and_owner_boundary(self):
         self.create()
         app = bot.Bot(self.api, self.pub, 'TestBot', items(3), owner=7)
@@ -289,6 +311,61 @@ class V2Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             app.remote_append('other_by_TestBot')
         self.assertEqual([s['name'] for s in app.owned_sets()], [self.name])
+
+    def test_failed_progress_message_does_not_stop_upload_or_retry_message(self):
+        self.create()
+        app = bot.Bot(self.api, self.pub, 'TestBot', items(3), owner=7)
+        original = self.api.call
+        def fail_notification(method, params=None, file=None):
+            if method == 'sendMessage':
+                self.api.calls.append((method, params, file))
+                raise bot.ApiError(method, 0, 'simulated lost response')
+            return original(method, params, file)
+        self.api.calls.clear()
+        with patch.object(self.api, 'call', side_effect=fail_notification):
+            self.assertTrue(app.remote_append(self.name)['started'])
+            self.wait_idle(app)
+            app.live.thread.join(1)
+        self.assertFalse(app.live.thread.is_alive())
+        self.assertTrue(app.status.startswith('Готово.'))
+        self.assertEqual(len(self.api.sets[self.name]['stickers']), 3)
+        self.assertEqual(sum(m == 'sendMessage' for m, _, _ in self.api.calls), 1)
+        self.assertTrue(self.pub.state['cache'].get('7:hash-2'))
+
+    def test_control_accepts_and_uploads_while_start_message_is_blocked(self):
+        self.create()
+        app = bot.Bot(self.api, self.pub, 'TestBot', items(3), owner=7)
+        server = bot.serve_control(app, 'fixture-token', 0)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        entered, release, uploaded = threading.Event(), threading.Event(), threading.Event()
+        original = self.api.call
+        def slow_notification(method, params=None, file=None):
+            if method == 'sendMessage':
+                entered.set()
+                release.wait(5)
+            result = original(method, params, file)
+            if method == 'addStickerToSet':
+                uploaded.set()
+            return result
+        request = urllib.request.Request(f'http://127.0.0.1:{server.server_address[1]}/append',
+            data=json.dumps({'names': [self.name], 'files': ['2.tgs']}).encode(),
+            headers={'Authorization': 'Bearer fixture-token', 'Content-Type': 'application/json'})
+        with patch.object(self.api, 'call', side_effect=slow_notification):
+            try:
+                with urllib.request.urlopen(request, timeout=1) as response:
+                    self.assertEqual(response.status, 202)
+                    self.assertTrue(json.load(response)['started'])
+                self.assertTrue(entered.wait(1))
+                self.assertTrue(uploaded.wait(1), 'uploads must not wait for the chat notification')
+                self.assertFalse(release.is_set())
+            finally:
+                release.set()
+                self.wait_idle(app)
+                if app.live:
+                    app.live.thread.join(1)
+        self.assertTrue(app.status.startswith('Готово.'))
+        self.assertEqual(len(self.api.sets[self.name]['stickers']), 3)
 
     def test_set_sticker_recognised_by_content_despite_new_ids(self):
         # Real Telegram: a set's sticker has another file_id and file_unique_id than its upload.
@@ -336,14 +413,18 @@ class V2Tests(unittest.TestCase):
         for name in (self.name, 'stickers_by_TestBot'):
             self.assertEqual([s['file_id'] for s in self.api.sets[name]['stickers']], ['file-0.tgs', 'file-3.tgs', 'file-2.tgs'])
         # in the order asked, set after set, the one already there too
+        # the stickers as stickers; the custom emoji (no sendSticker for them) as emoji in messages
         sent = [p['sticker'] for m, p, _ in self.api.calls if m == 'sendSticker']
-        self.assertEqual(sent, ['file-3.tgs', 'file-0.tgs', 'file-2.tgs'] * 2)
+        self.assertEqual(sent, ['file-3.tgs', 'file-0.tgs', 'file-2.tgs'])
+        emoji = [p['entities'][0]['custom_emoji_id'] for m, p, _ in self.api.calls if m == 'sendMessage' and p.get('entities')]
+        self.assertEqual(emoji, ['emoji-3', 'emoji-0', 'emoji-2'])
         self.assertEqual(app.links, result['links'])
 
     def test_control_server_needs_the_token(self):
         self.create()
         app = bot.Bot(self.api, self.pub, 'TestBot', items(2), owner=7)
         server = bot.serve_control(app, 'secret', 0)
+        self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         url = f'http://127.0.0.1:{server.server_address[1]}/sets'
         with self.assertRaises(urllib.error.HTTPError) as denied:

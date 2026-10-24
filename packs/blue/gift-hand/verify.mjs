@@ -47,7 +47,7 @@ for (const g of hand.shapes) {
       if (light) {
         assert.ok(['gf','gs'].includes(p.ty))
         assert.equal(p.g.k.a,0)
-        for(let i=0;i<p.g.p;i++) assert.deepEqual(p.g.k.k.slice(i*4+1,i*4+4),rgb('#a5d6ea'))
+        for(let i=0;i<p.g.p;i++) assert.deepEqual(p.g.k.k.slice(i*4+1,i*4+4),rgb(style.handHighlight))
         assert.deepEqual(p.o,{a:0,k:p.ty==='gs'?100:45})
       } else {
         assert.equal(p.ty,'fl','Thumb shading must have a crisp edge')

@@ -1,0 +1,12 @@
+{
+  "width": 1440, "height": 1080, "fps": 60, "seconds": 10,
+  "background": "background.png",
+  "actors": [
+    {"id":"back-left", "x":620, "y":248, "scale":0.89, "mirror":false, "stiffness":1.12, "light":0.72},
+    {"id":"back-right", "x":820, "y":258, "scale":0.87, "mirror":true, "stiffness":0.92, "light":0.69},
+    {"id":"front-left", "x":415, "y":226, "scale":1.0, "mirror":true, "stiffness":0.96, "light":0.88},
+    {"id":"front-right", "x":1025, "y":226, "scale":1.0, "mirror":false, "stiffness":1.06, "light":0.85}
+  ],
+  "palette": {"outline":"#335375", "body":["#44688b","#6086a7","#7ba3c3"], "rim":"#a5d6ea"},
+  "jolts": [{"time":2.25,"gain":1.0},{"time":6.65,"gain":0.78},{"time":8.0,"gain":0.34}]
+}

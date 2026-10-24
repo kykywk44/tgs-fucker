@@ -1,0 +1,15 @@
+{
+  "name": "193 + 090 · Записывает и засыпает · 15с",
+  "library": [
+    "193",
+    "090"
+  ],
+  "emoji": "📝😴",
+  "build": "node packs/blue/clipboard-sleep/build.mjs && node packs/blue/clipboard-sleep/video.mjs",
+  "format": "webm",
+  "seconds": 15,
+  "size": 512,
+  "fps": 30,
+  "status": "published",
+  "publication": "publication.json"
+}

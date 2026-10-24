@@ -1,7 +1,25 @@
 {
   "emoji": "🙏",
   "library": "169",
-  "remove": ["Sleeve Stroke", "Sleeve Front 5", "Sleeve Stroke Back", "Wrist Stroke"],
-  "trims": [{ "asset": "comp_0", "layer": "Palm Stroke", "group": "Group 2", "end": 82 }],
-  "underlines": [{ "asset": "comp_0", "layer": "Palm Fill" }]
+  "remove": [
+    "Sleeve Stroke",
+    "Sleeve Front 5",
+    "Sleeve Stroke Back",
+    "Wrist Stroke"
+  ],
+  "trims": [
+    {
+      "asset": "comp_0",
+      "layer": "Palm Stroke",
+      "group": "Group 2",
+      "end": 82
+    }
+  ],
+  "underlines": [
+    {
+      "asset": "comp_0",
+      "layer": "Palm Fill"
+    }
+  ],
+  "handHighlights": true
 }

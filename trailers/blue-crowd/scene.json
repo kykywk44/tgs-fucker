@@ -1,0 +1,38 @@
+{
+  "width": 1920,
+  "height": 1080,
+  "fps": 60,
+  "seconds": 12,
+  "periodColumns": 8,
+  "pitch": 460,
+  "whiteOverlay": {"top": 0, "bottom": 1080, "opacityTop": 1, "opacityBottom": 0},
+  "camera": {"brake": [2.4, 3.8], "resume": [6.5, 7.9]},
+  "rows": [
+    {"size": 720, "y": 520, "opacity": 1},
+    {"size": 510, "y": 411, "opacity": 1},
+    {"size": 365, "y": 331, "opacity": 1},
+    {"size": 260, "y": 275, "opacity": 1},
+    {"size": 185, "y": 237, "opacity": 1},
+    {"size": 132, "y": 210, "opacity": 1}
+  ],
+  "hero": {
+    "column": 6,
+    "settle": [3, 3.8],
+    "reachGrip": [3.85, 4.3],
+    "lowerLaptop": [4.05, 4.85],
+    "peek": [4.1, 4.8],
+    "tiltHead": [4.8, 5.45],
+    "raiseHand": [5.05, 5.7],
+    "hold": [5.7, 7.8],
+    "lowerHand": [7.8, 8.4],
+    "recoverHead": [8, 8.8],
+    "openLaptop": [8.55, 9.65],
+    "releaseGrip": [9.25, 9.7],
+    "handScale": 0.48,
+    "handPivot": [330, 384],
+    "handAnchor": [256, 350],
+    "handOutlineGain": 1.9375,
+    "handSwayDegrees": 1.2,
+    "handWaveDegrees": 8
+  }
+}

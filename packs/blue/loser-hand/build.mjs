@@ -17,7 +17,7 @@ const motion=await read(`packs/blue/${name}/motion-source.tgs`)
 // The broad thumb highlight should match the softer accents of other blue hands.
 const highlight=recipe.thumbHighlight
 const thumb=blue.layers.find(l=>l.nm===highlight.layer)
-const paints=walk(thumb.shapes).filter(p=>p.ty==='fl'&&p.c?.k?.[0]>.6)
+const paints=walk(thumb.shapes).filter(p=>p.ty==='fl'&&p.c?.k?.[0]>.5)
 assert.equal(paints.length,2)
 for(const paint of paints){paint.c={a:0,k:[...rgb(highlight.color),1]};paint.o={a:0,k:highlight.opacity}}
 await writeFile(join(ROOT,'exports/sheets/loser-hand/references/blue-145.json'),JSON.stringify(blue))

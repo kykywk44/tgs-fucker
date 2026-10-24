@@ -73,7 +73,7 @@ export const world=(ls,l,f)=>mul(l.parent==null?I:world(ls,ls.find(p=>p.ind===l.
 export const baked=(fn,n=180,shape=false,step=1)=>({a:1,k:[...new Set([...Array.from({length:Math.ceil(n/step)},(_,i)=>i*step),n-1])].map(t=>({t,s:shape?[fn(t)]:fn(t),
   ...(t<n-1&&{o:{x:0.333,y:0.333},i:{x:0.667,y:0.667}})}))})
 export function nullify(l){l.ty=3;delete l.shapes}
-export async function finish(name,source,anim,frames){
+export async function finish(name,source,anim,frames,{allowEmpty=false}={}){
   const bytes=await writeTgs(anim),checks=telegramChecks(anim,bytes.length)
   assert.ok(checks.every(c=>c.ok),JSON.stringify(checks.filter(c=>!c.ok)))
   await mkdir(join(ROOT,`exports/sheets/${name}`),{recursive:true})
@@ -89,7 +89,7 @@ export async function finish(name,source,anim,frames){
   const n=anim.op-anim.ip,all=new Canvas(128*15,144*Math.ceil(n/15))
   for(let f=0;f<n;f++){
     const px=players[1].render(f,128,128).slice(),x=f%15*128,y=Math.floor(f/15)*144
-    assert.ok(px.some((v,i)=>i%4===3&&v>0),`Empty frame ${f}`)
+    assert.ok(allowEmpty||px.some((v,i)=>i%4===3&&v>0),`Empty frame ${f}`)
     all.text(`f ${f}`,x+2,y+2,[70,70,70]);all.draw(px,128,x,y+16)
   }
   const start=players[1].render(0,512,512).slice(),end=players[1].render(n-1,512,512).slice()

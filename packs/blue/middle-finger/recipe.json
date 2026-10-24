@@ -1,5 +1,6 @@
 {
   "emoji": "🖕",
   "library": "167",
-  "frame": 100
+  "frame": 100,
+  "handHighlights": true
 }

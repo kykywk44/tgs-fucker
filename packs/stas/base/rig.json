@@ -1,0 +1,101 @@
+{
+  "name": "Стас",
+  "version": 1,
+  "source": "portrait.svg",
+  "reference": "reference.png",
+  "output": "exports/stas/stas-base.tgs",
+  "width": 512,
+  "height": 512,
+  "fps": 60,
+  "frames": 180,
+  "state": "neutral",
+  "bytes": 7575,
+  "parts": {
+    "hair_front": {
+      "layer": 10,
+      "parent": 900
+    },
+    "mole": {
+      "layer": 11,
+      "parent": 900
+    },
+    "mouth": {
+      "layer": 12,
+      "parent": 900
+    },
+    "nose": {
+      "layer": 13,
+      "parent": 900
+    },
+    "brow_R": {
+      "layer": 14,
+      "parent": 900
+    },
+    "brow_L": {
+      "layer": 15,
+      "parent": 900
+    },
+    "eye_R": {
+      "layer": 16,
+      "parent": 900
+    },
+    "eye_L": {
+      "layer": 17,
+      "parent": 900
+    },
+    "face": {
+      "layer": 18,
+      "parent": 900
+    },
+    "ear_R": {
+      "layer": 19,
+      "parent": 900
+    },
+    "ear_L": {
+      "layer": 20,
+      "parent": 900
+    },
+    "neck": {
+      "layer": 21,
+      "parent": 901
+    },
+    "shirt": {
+      "layer": 22,
+      "parent": 901
+    },
+    "hair_back": {
+      "layer": 23,
+      "parent": 900
+    },
+    "rig:head": {
+      "layer": 900,
+      "parent": 901
+    },
+    "rig:root": {
+      "layer": 901,
+      "parent": null
+    }
+  },
+  "pivots": {
+    "head": [
+      256,
+      383
+    ],
+    "root": [
+      256,
+      256
+    ],
+    "eye_L": [
+      196,
+      221
+    ],
+    "eye_R": [
+      304,
+      218
+    ],
+    "mouth": [
+      257,
+      331
+    ]
+  }
+}

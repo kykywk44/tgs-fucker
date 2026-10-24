@@ -1,12 +1,33 @@
 {
   "name": "L · Loser",
-  "library": ["145", "143"],
+  "library": [
+    "145",
+    "143"
+  ],
   "frame": 70,
   "poseFrame": 70,
   "poseSource": "145",
   "motionSource": "143",
-  "placement": {"anchor":[215,455], "position":[0,178], "scale":86},
-  "fingerFlex": {"indexGain":1, "thumbGain":0.3},
-  "thumbHighlight": {"layer":"Thumb Down Shad 2", "color":"#8cb7d3", "opacity":55},
-  "build": "node packs/blue/loser-hand/build.mjs"
+  "placement": {
+    "anchor": [
+      215,
+      455
+    ],
+    "position": [
+      0,
+      178
+    ],
+    "scale": 86
+  },
+  "fingerFlex": {
+    "indexGain": 1,
+    "thumbGain": 0.3
+  },
+  "thumbHighlight": {
+    "layer": "Thumb Down Shad 2",
+    "color": "#8cb7d3",
+    "opacity": 55
+  },
+  "build": "node packs/blue/loser-hand/build.mjs",
+  "handHighlights": true
 }

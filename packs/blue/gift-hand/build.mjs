@@ -1,3 +1,4 @@
+import {normalizeHandHighlights} from '../lib/hand-highlights.mjs'
 // Uploaded gold hand: original gesture with the blue pack's shading, without bow/sparkles.
 // node packs/blue/gift-hand/build.mjs
 import assert from 'node:assert/strict'
@@ -95,4 +96,4 @@ for (const paint of walk(matte.shapes)) {
 }
 hand.tt = 1
 anim.layers = [rig,matte,hand]
-await finish('gift-hand',source,anim,[0,15,30,45,60,75,90,105,120,135,150,179])
+await finish('gift-hand',source,normalizeHandHighlights(anim),[0,15,30,45,60,75,90,105,120,135,150,179])

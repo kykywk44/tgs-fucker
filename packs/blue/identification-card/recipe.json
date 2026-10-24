@@ -1,0 +1,10 @@
+{
+  "name": "n · Карточка",
+  "emoji": "🪪",
+  "library": "573",
+  "text": "n",
+  "letter": {"height":112, "position":[52,126,0]},
+  "smile": {"stretch":[1.65,2.2], "keys":[[60,0],[110,0],[128,1],[174,1],[188,0],[240,0]]},
+  "portrait": {"width":230, "height":298, "center":[0,-22.965], "outline":15, "positionOffset":[0,-8]},
+  "build": "node packs/blue/identification-card/build.mjs"
+}

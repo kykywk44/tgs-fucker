@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "geometry": "character.svg",
+  "source": "source/original.svg",
+  "palette": { "ink": "#010101", "paper": "#ffffff" },
+  "sourceCoordinates": [634, 1077],
+  "headPivot": [280, 550],
+  "bodyPivot": [280, 930],
+  "earPivots": { "left": [169, 371], "right": [389, 377] },
+  "pawPivots": { "left": [64, 813], "right": [494, 813] },
+  "legPivots": { "left": [194, 906], "right": [365, 906] },
+  "views": {
+    "head": { "scale": 0.53, "position": [245, 337] },
+    "full": { "scale": 0.39, "position": [256, 263] }
+  },
+  "frameRate": 60,
+  "frames": 180,
+  "bakeStep": 3,
+  "minimumMargin": 16,
+  "controls": {
+    "x": "root translation x, source px",
+    "y": "root translation y, source px",
+    "headR": "head tilt, degrees",
+    "bodyR": "torso lean, degrees",
+    "yaw": "head surface turn, degrees; nonlinear contour deformation plus face parallax",
+    "pitch": "vertical surface turn, degrees",
+    "squash": "head/torso squash, ratio; reciprocal width compensation",
+    "earL": "upright ear bend, degrees, attachment locked",
+    "earR": "folded ear bend, degrees, attachment locked",
+    "eyeL": "left eye open ratio",
+    "eyeR": "right eye open ratio",
+    "smile": "eye arch from neutral wedge to soft laugh crescent, 0..1",
+    "pawL": "left paw offset [x,y] in source px",
+    "pawR": "right paw offset [x,y] in source px",
+    "legL": "left foot angle, degrees",
+    "legR": "right foot angle, degrees"
+  },
+  "notes": [
+    "No mouth or eyebrows, including hidden controls: explicit user direction.",
+    "Head-only and full-body compile the exact same head subtree from character.svg.",
+    "Black eye wedges are the pupils in this character; no white eyeballs are invented in neutral.",
+    "Original round paws intentionally float beside the body. Animation preserves this visual convention.",
+    "Ear roots overlap the skull by 25–45 source px. Foot tops are rebuilt under the torso.",
+    "Ear rotation is implemented as a progressive bend around named pivots, with both root edges fixed.",
+    "Black outline widths are constant source-space values. There is no stroke-width animation."
+  ]
+}
